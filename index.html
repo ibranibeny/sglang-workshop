@@ -739,6 +739,40 @@ print(response.choices[0].message.content)</code></pre>
 .\deploy\query-weather.ps1 "Jakarta" "Surabaya"</code></pre>
 </section>
 
+<!-- ==================== 7. GITHUB CLONE ==================== -->
+<section id="github-clone">
+    <h2><span class="icon">📦</span> GitHub Clone</h2>
+    <p>Get the complete deployment scripts, configuration files, and testing tools from the GitHub repository:</p>
+    
+    <div class="card">
+        <h4>Clone the Repository</h4>
+        <pre><code>git clone https://github.com/ibranibeny/sglang-azure-workshop.git
+cd sglang-azure-workshop</code></pre>
+        <p>After cloning, navigate to the <code>deploy/</code> directory and follow the deployment scripts in order:</p>
+        <pre><code>cd deploy
+# Then follow: 00-genkey.sh → 01-deploy.sh → 02-start-vm.sh → 03-open-nsg.sh → 05-run-sglang.sh</code></pre>
+    </div>
+
+    <div class="card">
+        <h4>Repository Structure</h4>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Path</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>deploy/</code></td><td>Deployment scripts (00-genkey.sh through 99-destroy.sh)</td></tr>
+                    <tr><td><code>deploy/Caddyfile.tmpl</code></td><td>Caddy reverse proxy configuration template</td></tr>
+                    <tr><td><code>deploy/cloud-init.yaml</code></td><td>VM cloud-init configuration for Docker installation</td></tr>
+                    <tr><td><code>deploy/config.sh</code></td><td>Shared configuration variables (region, VM size, domain)</td></tr>
+                    <tr><td><code>deploy/test-tool-calling.ps1</code></td><td>PowerShell test suite for endpoint validation</td></tr>
+                    <tr><td><code>README.md</code></td><td>Project overview and quick start guide</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
 </div>
 
 <!-- ==================== FOOTER ==================== -->
