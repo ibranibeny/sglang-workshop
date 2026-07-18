@@ -773,6 +773,84 @@ cd sglang-azure-workshop</code></pre>
     </div>
 </section>
 
+<!-- ==================== 8. CUSTOM DOMAIN ==================== -->
+<section id="custom-domain">
+    <h2><span class="icon">🌐</span> Custom Domain Configuration</h2>
+    <p>If you want to use your own domain instead of <code>openai.contoso.day</code>, follow these steps to configure DNS and update the deployment.</p>
+
+    <h3>Step 1: Configure DNS Record</h3>
+    <p>Add an <strong>A record</strong> in your DNS provider's control panel pointing to your Azure VM's public IP:</p>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>Record Type</th><th>Name</th><th>Value</th><th>TTL</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>A</td><td><code>openai</code> (or <code>@</code> for apex)</td><td>[Your Azure Public IP]</td><td>Auto</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="note">
+        <strong>💡 Cloudflare Users:</strong> Set proxy status to <strong>DNS-only</strong> (grey cloud) to avoid routing issues. Do not enable CDN or WAF — Caddy handles TLS directly.
+    </div>
+
+    <h3>Step 2: Update Deployment Configuration</h3>
+    <p>Edit <code>deploy/config.sh</code> to set your custom domain:</p>
+    <pre><code># Edit deploy/config.sh
+DOMAIN="yourdomain.com"          # Your custom domain
+SUBDOMAIN="openai"               # Subdomain (optional)
+FULL_DOMAIN="${SUBDOMAIN}.${DOMAIN}"  # e.g., openai.yourdomain.com</code></pre>
+
+    <h3>Step 3: Update Caddy Configuration</h3>
+    <p>Caddy automatically requests Let's Encrypt certificates for your domain. Ensure the <code>Caddyfile.tmpl</code> references the correct domain:</p>
+    <pre><code># In deploy/Caddyfile.tmpl
+{
+    ${FULL_DOMAIN} {
+        reverse_proxy 127.0.0.1:30000
+        
+        header {
+            Strict-Transport-Security "max-age=31536000; includeSubDomains"
+            X-Content-Type-Options "nosniff"
+        }
+        
+        # API Key authentication
+        @auth header Authorization /^Bearer \\s+YOUR_API_KEY\\s*$/
+        respond @auth "Unauthorized" 401
+    }
+}</code></pre>
+
+    <h3>Step 4: Redeploy</h3>
+    <p>After updating the configuration, restart Caddy to apply the new domain and request a fresh TLS certificate:</p>
+    <pre><code># SSH into the VM and restart Caddy
+az vm run-command invoke -g sglang-rg -n sglang-h100 \
+  --command-id RunShellScript \
+  --scripts "docker restart caddy"
+
+# Verify TLS certificate
+curl -I https://yourdomain.com/v1/health</code></pre>
+
+    <h3>Verification</h3>
+    <p>Confirm your custom domain is working correctly:</p>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>Check</th><th>Command</th><th>Expected Result</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>DNS Resolution</td><td><code>nslookup yourdomain.com</code></td><td>Resolves to Azure Public IP</td></tr>
+                <tr><td>TLS Certificate</td><td><code>openssl s_client -connect yourdomain.com:443 -servername yourdomain.com</code></td><td>Certificate issued for yourdomain.com</td></tr>
+                <tr><td>Health Endpoint</td><td><code>curl https://yourdomain.com/health</code></td><td>HTTP 200 OK</td></tr>
+                <tr><td>API Endpoint</td><td><code>curl -H "Authorization: Bearer YOUR_KEY" https://yourdomain.com/v1/models</code></td><td>Model list JSON response</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="note">
+        <strong>⚠️ Important:</strong> Let's Encrypt certificates are valid for 90 days. Caddy automatically renews them, but ensure port 80 remains open for ACME challenges. If using a reverse proxy or CDN, configure it to pass ACME challenges through to Caddy.
+    </div>
+</section>
+
 </div>
 
 <!-- ==================== FOOTER ==================== -->
