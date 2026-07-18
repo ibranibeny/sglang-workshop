@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGLang on Azure H100 — Workshop</title>
+    <style>
+        :root {
+            --bg: #0a0e1a;
+            --bg-card: #111827;
+            --bg-code: #1a1f35;
+            --border: #1e2a4a;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-green: #22c55e;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-purple: #a855f7;
+            --accent-pink: #ec4899;
+            --accent-orange: #f97316;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+        }
+        .hero {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 4rem 2rem 3rem;
+            text-align: center;
+        }
+        .hero-badge {
+            display: inline-block;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: var(--accent-blue);
+            padding: 0.3rem 1rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.05em;
+        }
+        .hero h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+        }
+        .hero p {
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            max-width: 700px;
+            margin: 0 auto 2rem;
+        }
+        .hero-meta {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        .hero-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        .hero-meta-item .icon { font-size: 1.1rem; }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+        section {
+            padding: 3rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        section:last-child { border-bottom: none; }
+        h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        h2 .icon { font-size: 1.5rem; }
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+            color: var(--accent-cyan);
+        }
+        h4 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin: 1.25rem 0 0.5rem;
+            color: var(--accent-blue);
+        }
+        p { margin-bottom: 1rem; }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.25rem;
+            margin: 1.5rem 0;
+        }
+        .card-sm {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            transition: border-color 0.2s;
+        }
+        .card-sm:hover { border-color: var(--accent-blue); }
+        .card-sm h4 {
+            margin: 0 0 0.5rem;
+            color: var(--text);
+            font-size: 1rem;
+        }
+        .card-sm p { margin: 0; font-size: 0.9rem; color: var(--text-muted); }
+        .card-sm .tag {
+            display: inline-block;
+            background: rgba(59, 130, 246, 0.12);
+            color: var(--accent-blue);
+            padding: 0.15rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        code, pre {
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        }
+        code {
+            background: var(--bg-code);
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            font-size: 0.88em;
+            color: var(--accent-cyan);
+        }
+        pre {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-size: 0.88rem;
+            line-height: 1.6;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+            color: var(--text);
+        }
+        .mermaid {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            display: flex;
+            justify-content: center;
+        }
+        .mermaid svg { max-width: 100%; height: auto; }
+        .step {
+            display: flex;
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+        .step-num {
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .step-content { flex: 1; }
+        .step-content h4 { margin-top: 0.3rem; }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+        .status-live {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--accent-green);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            background: var(--bg-code);
+            font-weight: 600;
+            color: var(--accent-cyan);
+        }
+        td { color: var(--text-muted); }
+        tr:hover td { color: var(--text); }
+        .note {
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            border-left: 3px solid var(--accent-amber);
+            padding: 1rem 1.25rem;
+            border-radius: 0 8px 8px 0;
+            margin: 1rem 0;
+            font-size: 0.92rem;
+        }
+        .note strong { color: var(--accent-amber); }
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+        }
+        .footer a { color: var(--accent-blue); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+        .endpoint-box {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(6, 182, 212, 0.08));
+            border: 1px solid rgba(34, 197, 94, 0.25);
+            border-radius: 10px;
+            padding: 1.25rem 1.5rem;
+            margin: 1rem 0;
+            font-family: 'Cascadia Code', monospace;
+            font-size: 1rem;
+            color: var(--accent-green);
+            word-break: break-all;
+        }
+        .checklist { list-style: none; padding: 0; }
+        .checklist li {
+            padding: 0.4rem 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        .checklist li::before { content: "✅"; flex-shrink: 0; }
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2rem; }
+            .hero-meta { flex-direction: column; align-items: center; gap: 0.75rem; }
+            .card-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            themeVariables: {
+                primaryColor: '#1e3a5f',
+                primaryTextColor: '#e2e8f0',
+                primaryBorderColor: '#3b82f6',
+                lineColor: '#60a5fa',
+                secondaryColor: '#1a1f35',
+                tertiaryColor: '#111827',
+                fontFamily: 'Segoe UI, system-ui, sans-serif',
+                fontSize: '14px'
+            },
+            flowchart: { curve: 'basis', padding: 20 }
+        });
+    </script>
+</head>
+<body>
+
+<!-- ==================== HERO ==================== -->
+<header class="hero">
+    <div class="hero-badge">📘 WORKSHOP DOCUMENTATION</div>
+    <h1>SGLang on Azure H100</h1>
+    <p>Deploy a production-grade, OpenAI-compatible LLM inference endpoint on a single Azure H100 GPU — served via SGLang behind a Caddy HTTPS reverse-proxy with Let's Encrypt TLS and API-key authentication.</p>
+    <div class="hero-meta">
+        <div class="hero-meta-item"><span class="icon">🤖</span> Model: Qwen3.6-35B-A3B-FP8</div>
+        <div class="hero-meta-item"><span class="icon">🎮</span> GPU: NVIDIA H100 NVL (94 GB)</div>
+        <div class="hero-meta-item"><span class="icon">📍</span> Region: Indonesia Central</div>
+        <div class="hero-meta-item"><span class="icon">🔒</span> TLS: Let's Encrypt</div>
+        <div class="hero-meta-item"><span class="icon">🟢</span> Status: <span class="status-badge status-live">LIVE</span></div>
+    </div>
+</header>
+
+<div class="container">
+
+<!-- ==================== 1. OVERVIEW & OBJECTIVES ==================== -->
+<section id="overview">
+    <h2><span class="icon">🎯</span> Overview & Objectives</h2>
+    <p>This workshop demonstrates how to deploy a large language model (LLM) inference endpoint on Azure infrastructure using <strong>SGLang</strong> as the serving engine and <strong>Caddy</strong> as a reverse proxy with HTTPS termination. The result is a fully functional OpenAI-compatible API endpoint accessible over public HTTPS.</p>
+
+    <div class="card">
+        <h4>Learning Objectives</h4>
+        <ul class="checklist">
+            <li>Provision an Azure VM with NVIDIA H100 GPU (Standard_NC40ads_H100_v5)</li>
+            <li>Deploy SGLang to serve the Qwen3.6-35B-A3B-FP8 model with FP8 quantization</li>
+            <li>Configure Caddy as an HTTPS reverse proxy with Let's Encrypt TLS certificates</li>
+            <li>Enforce API-key authentication on all inference requests</li>
+            <li>Configure Azure Network Security Group (NSG) rules for controlled access</li>
+            <li>Verify end-to-end inference including tool-calling capabilities</li>
+            <li>Understand the networking considerations: Global Secure Access (GSA) and WSL outbound restrictions</li>
+        </ul>
+    </div>
+
+    <h3>What You'll Build</h3>
+    <p>A public HTTPS endpoint at <code>https://openai.contoso.day/v1</code> that accepts OpenAI-compatible chat completion requests, enforces API-key authentication, and routes inference to a Qwen3.6 model running on an H100 GPU.</p>
+    <div class="endpoint-box">https://openai.contoso.day/v1/chat/completions</div>
+</section>
+
+<!-- ==================== 2. AZURE SERVICES ==================== -->
+<section id="azure-services">
+    <h2><span class="icon">☁️</span> Azure Services & Region</h2>
+    <p>This deployment leverages the following Azure services, all provisioned within the <strong>Indonesia Central</strong> region to minimize latency for Southeast Asian users.</p>
+
+    <div class="card-grid">
+        <div class="card-sm">
+            <span class="tag">COMPUTE</span>
+            <h4>VM: Standard_NC40ads_H100_v5</h4>
+            <p>40 vCPUs, 1120 GB RAM, 1× NVIDIA H100 NVL (94 GB VRAM). The H100 provides 192 TB/s memory bandwidth — essential for serving 35B-parameter models at interactive speeds.</p>
+        </div>
+        <div class="card-sm">
+            <span class="tag">NETWORK</span>
+            <h4>Public IP + NSG</h4>
+            <p>Static Public IP <code>70.153.148.66</code> with NSG rules allowing inbound SSH (22), HTTP/ACME (80), and HTTPS (443). Outbound traffic is unrestricted.</p>
+        </div>
+        <div class="card-sm">
+            <span class="tag">DNS</span>
+            <h4>Cloudflare DNS</h4>
+            <p>DNS-only proxy mode. The domain <code>openai.contoso.day</code> resolves to the VM's public IP via a Cloudflare A record. No CDN or WAF — direct routing to the VM.</p>
+        </div>
+        <div class="card-sm">
+            <span class="tag">STORAGE</span>
+            <h4>Managed Disk + HF Cache</h4>
+            <p>Premium SSD for OS and application data. Hugging Face model weights cached at <code>/opt/hf-cache</code> to avoid repeated downloads on VM restart.</p>
+        </div>
+        <div class="card-sm">
+            <span class="tag">CONTAINER</span>
+            <h4>Docker (SGLang + Caddy)</h4>
+            <p>Two containers: SGLang on loopback <code>127.0.0.1:30000</code> and Caddy on <code>:443</code>. Caddy handles TLS termination, API-key validation, and request forwarding.</p>
+        </div>
+        <div class="card-sm">
+            <span class="tag">SECURITY</span>
+            <h4>Let's Encrypt + API Key</h4>
+            <p>Production TLS certificates from Let's Encrypt (issuer: YE1). Every API request requires <code>Authorization: Bearer &lt;API_KEY&gt;</code> — unauthenticated requests receive 401.</p>
+        </div>
+    </div>
+
+    <h3>Region Details</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>Property</th><th>Value</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Region Display Name</td><td>Indonesia Central</td></tr>
+                <tr><td>Region ID</td><td>indonesiacentral</td></tr>
+                <tr><td>Geography</td><td>Indonesia</td></tr>
+                <tr><td>Availability Zones</td><td>3 zones (for supported VM SKUs)</td></tr>
+                <tr><td>VM SKU</td><td>Standard_NC40ads_H100_v5</td></tr>
+                <tr><td>GPU</td><td>NVIDIA H100 NVL, 94 GB VRAM</td></tr>
+                <tr><td>Model</td><td>Qwen/Qwen3.6-35B-A3B-FP8</td></tr>
+                <tr><td>VRAM Usage</td><td>~77 GB / 94 GB (82%)</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="note">
+        <strong>⚠️ Note on Global Secure Access (GSA):</strong> Azure's Global Secure Access (formerly Private Access) blocks WSL outbound traffic to public domains. This means health checks and API testing from WSL will fail. Always test from <strong>Windows PowerShell</strong> or directly on the VM via <code>az vm run-command</code>.
+    </div>
+</section>
+
+<!-- ==================== 3. ARCHITECTURE ==================== -->
+<section id="architecture">
+    <h2><span class="icon">🏗️</span> Architecture</h2>
+    <p>The following diagram shows the complete deployment topology, from client request through Cloudflare DNS, Azure NSG, Caddy reverse proxy, to the SGLang inference engine on the H100 GPU.</p>
+
+    <div class="mermaid">
+flowchart TB
+    subgraph Internet["🌐 Internet"]
+        Client["🖥️ Client App / curl / Python SDK"]
+    end
+
+    subgraph Cloudflare["☁️ Cloudflare (DNS-Only)"]
+        DNS["DNS Record<br/>openai.contoso.day → 70.153.148.66"]
+    end
+
+    subgraph Azure["☁️ Azure — Indonesia Central"]
+        subgraph RG["📦 Resource Group: sglang-rg"]
+            PIP["📌 Public IP<br/>70.153.148.66 (Static)"]
+
+            subgraph NSG["🛡️ NSG: sglang-nsg"]
+                direction TB
+                N1["Inbound: 22, 80, 443"]
+                N2["Outbound: All"]
+            end
+
+            subgraph VM["💻 VM: sglang-h100<br/>Standard_NC40ads_H100_v5"]
+                subgraph Docker["🐳 Docker"]
+                    Caddy["🔒 Caddy v2<br/>HTTPS :443<br/>Let's Encrypt TLS<br/>API Key Auth"]
+                    SGLang["🚀 SGLang Server<br/>127.0.0.1:30000"]
+                end
+                GPU["🎮 NVIDIA H100 NVL<br/>94 GB VRAM"]
+                HFCache["📦 HF Cache<br/>/opt/hf-cache"]
+            end
+        end
+    end
+
+    Client -->|"HTTPS"| DNS
+    DNS -->|"A Record"| PIP
+    PIP --> NSG
+    NSG --> Caddy
+    Caddy -->|"Proxy + Auth"| SGLang
+    SGLang --> GPU
+    SGLang --> HFCache
+
+    style Caddy fill:#22c55e,color:#fff,stroke:#16a34a,stroke-width:2px
+    style SGLang fill:#3b82f6,color:#fff,stroke:#2563eb,stroke-width:2px
+    style GPU fill:#f59e0b,color:#fff,stroke:#d97706,stroke-width:2px
+    style DNS fill:#a855f7,color:#fff,stroke:#9333ea,stroke-width:2px
+    style Caddy fill:#22c55e,color:#fff
+    style SGLang fill:#3b82f6,color:#fff
+    style GPU fill:#f59e0b,color:#fff
+    style PIP fill:#64748b,color:#fff
+    style N1 fill:#ef4444,color:#fff
+    style N2 fill:#22c55e,color:#fff
+    </div>
+
+    <h3>Request Flow</h3>
+    <div class="mermaid">
+sequenceDiagram
+    participant C as 🖥️ Client
+    participant CF as ☁️ Cloudflare DNS
+    participant CA as 🔒 Caddy (HTTPS :443)
+    participant SG as 🚀 SGLang (loopback :30000)
+    participant GPU as 🎮 H100 GPU
+
+    C->>CF: DNS lookup openai.contoso.day
+    CF-->>C: 70.153.148.66
+
+    C->>CA: POST /v1/chat/completions<br/>Authorization: Bearer &lt;API_KEY&gt;
+
+    alt No API Key or Invalid
+        CA-->>C: 401 Unauthorized
+    else Valid API Key
+        CA->>SG: Forward to 127.0.0.1:30000
+        SG->>GPU: Run inference (Qwen3.6-35B-A3B-FP8)
+        GPU-->>SG: Generated tokens
+        SG-->>CA: JSON response
+        CA-->>C: 200 OK + completion
+    end
+    </div>
+</section>
+
+<!-- ==================== 4. DEPLOYMENT GUIDANCE ==================== -->
+<section id="deployment">
+    <h2><span class="icon">🚀</span> Deployment Guidance</h2>
+    <p>The deployment is fully automated through a series of bash scripts in the <code>deploy/</code> directory. Each script handles a specific phase of the infrastructure and application lifecycle.</p>
+
+    <h3>Prerequisites</h3>
+    <div class="card">
+        <ul class="checklist">
+            <li>Azure CLI installed and authenticated: <code>az login</code></li>
+            <li>Azure subscription with H100 quota in Indonesia Central</li>
+            <li>Domain configured on Cloudflare (DNS-only mode)</li>
+            <li>SSH key pair (auto-generated if not present)</li>
+            <li>Docker installed on the target VM</li>
+        </ul>
+    </div>
+
+    <h3>Phase 1: Setup</h3>
+    <div class="step">
+        <div class="step-num" style="background: rgba(59, 130, 246, 0.2); color: var(--accent-blue);">1</div>
+        <div class="step-content">
+            <h4>Generate API Key</h4>
+            <p><code>deploy/00-genkey.sh</code> — Generates a 64-character random API key and stores it in <code>deploy/.secrets/api_key</code> (git-ignored, mode 600).</p>
+            <pre><code>cd deploy
+./00-genkey.sh
+# Output: API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Stored in: .secrets/api_key</code></pre>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num" style="background: rgba(59, 130, 246, 0.2); color: var(--accent-blue);">2</div>
+        <div class="step-content">
+            <h4>Provision VM + GPU Driver</h4>
+            <p><code>deploy/01-deploy.sh</code> — Creates the resource group, VNet, and H100 VM. Installs NVIDIA GPU driver via Azure Extension. Configures cloud-init for Docker installation.</p>
+            <pre><code>./01-deploy.sh
+# Creates:
+#   - Resource Group: sglang-rg
+#   - VM: sglang-h100 (Standard_NC40ads_H100_v5)
+#   - VNet: sglang-vnet
+#   - Public IP: 70.153.148.66 (static)
+#   - NVIDIA GPU Driver extension</code></pre>
+        </div>
+    </div>
+
+    <h3>Phase 2: Network</h3>
+    <div class="step">
+        <div class="step-num" style="background: rgba(168, 85, 247, 0.2); color: var(--accent-purple);">3</div>
+        <div class="step-content">
+            <h4>Ensure VM is Running</h4>
+            <p><code>deploy/02-start-vm.sh</code> — Verifies the VM is in a running state before proceeding.</p>
+            <pre><code>./02-start-vm.sh
+# Waits until provisioningState=Succeeded</code></pre>
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-num" style="background: rgba(168, 85, 247, 0.2); color: var(--accent-purple);">4</div>
+        <div class="step-content">
+            <h4>Open NSG Firewall</h4>
+            <p><code>deploy/03-open-nsg.sh</code> — Creates NSG inbound rules for SSH (22), HTTP/ACME (80), and HTTPS (443). <strong>Important:</strong> If Azure Defender strips these rules, use <code>03b-open-nsg-ports.sh</code> to restore them.</p>
+            <pre><code>./03-open-nsg.sh
+# Creates NSG rules:
+#   - AllowSSH  (port 22)
+#   - AllowACME (port 80)  — for Let's Encrypt challenges
+#   - AllowHTTPS (port 443)
+
+# If rules are stripped by Azure Defender:
+./03b-open-nsg-ports.sh</code></pre>
+        </div>
+    </div>
+
+    <h3>Phase 3: Application</h3>
+    <div class="step">
+        <div class="step-num" style="background: rgba(34, 197, 94, 0.2); color: var(--accent-green);">5</div>
+        <div class="step-content">
+            <h4>Launch SGLang + Caddy</h4>
+            <p><code>deploy/05-run-sglang.sh</code> — Pulls and starts both Docker containers. Performs a readiness health check on the VM's loopback interface (bypassing WSL/GSA network restrictions).</p>
+            <pre><code>./05-run-sglang.sh
+# Launches:
+#   - sglang-server: Qwen/Qwen3.6-35B-A3B-FP8 on 127.0.0.1:30000
+#   - caddy: HTTPS reverse proxy on :443
+#
+# Health check: loops curl http://127.0.0.1:30000/health
+# via az vm run-command (runs on VM, bypasses GSA)
+#
+# Tunable:
+#   READINESS_ATTEMPTS=900   (default 30 min)
+#   READINESS_INTERVAL=2     (seconds)</code></pre>
+        </div>
+    </div>
+
+    <h3>Cleanup</h3>
+    <div class="step">
+        <div class="step-num" style="background: rgba(239, 68, 68, 0.2); color: var(--accent-red);">✕</div>
+        <div class="step-content">
+            <h4>Delete Everything</h4>
+            <p><code>deploy/99-destroy.sh</code> — Deletes the resource group and all associated resources.</p>
+            <pre><code>./99-destroy.sh
+# WARNING: This permanently deletes:
+#   - Resource Group: sglang-rg
+#   - VM, NSG, VNet, Public IP, all disks
+#   - All data is lost</code></pre>
+        </div>
+    </div>
+
+    <h3>Testing the Endpoint</h3>
+    <p>From <strong>Windows PowerShell</strong> (not WSL — GSA blocks WSL outbound to public domains):</p>
+    <pre><code># Load API key
+$API_KEY = Get-Content deploy\.secrets\api_key
+
+# Health check (no auth required)
+curl https://openai.contoso.day/health
+
+# List models (authenticated)
+curl https://openai.contoso.day/v1/models `
+  -H "Authorization: Bearer $API_KEY"
+
+# Chat completion (authenticated)
+curl https://openai.contoso.day/v1/chat/completions `
+  -H "Authorization: Bearer $API_KEY" `
+  -H 'Content-Type: application/json' `
+  -d '{"model":"Qwen/Qwen3.6-35B-A3B-FP8","messages":[{"role":"user","content":"Hello"}]}'
+
+# Run full test suite
+.\deploy\test-tool-calling.ps1</code></pre>
+
+    <div class="note">
+        <strong>⚠️ TLS 1.2 Required:</strong> PowerShell 5.1 defaults to TLS 1.0. Always add <code>[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12</code> before making HTTPS requests.
+    </div>
+</section>
+
+<!-- ==================== 5. TROUBLESHOOTING ==================== -->
+<section id="troubleshooting">
+    <h2><span class="icon">🔧</span> Troubleshooting</h2>
+
+    <div class="card">
+        <h4>Endpoint unreachable from WSL</h4>
+        <p>Azure Global Secure Access (GSA) blocks WSL outbound traffic to public domains. Use Windows PowerShell or SSH into the VM to test.</p>
+    </div>
+
+    <div class="card">
+        <h4>TLS handshake failure ("Could not create SSL/TLS secure channel")</h4>
+        <p>Caddy's Let's Encrypt ACME challenge may have failed while NSG was down. Restart Caddy to retry:</p>
+        <pre><code>az vm run-command invoke -g sglang-rg -n sglang-h100 \
+  --command-id RunShellScript \
+  --scripts "docker restart caddy"</code></pre>
+    </div>
+
+    <div class="card">
+        <h4>NSG rules missing (Azure Defender adaptive hardening)</h4>
+        <p>Azure Defender can strip NSG inbound rules. Restore them:</p>
+        <pre><code>./deploy/03b-open-nsg-ports.sh</code></pre>
+    </div>
+
+    <div class="card">
+        <h4>Check VM health directly</h4>
+        <pre><code>az vm run-command invoke -g sglang-rg -n sglang-h100 \
+  --command-id RunShellScript \
+  --scripts "docker ps && curl -s http://127.0.0.1:30000/health"</code></pre>
+    </div>
+</section>
+
+<!-- ==================== 6. QUICK REFERENCE ==================== -->
+<section id="reference">
+    <h2><span class="icon">📋</span> Quick Reference</h2>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>Resource</th><th>Value</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Endpoint</td><td><code>https://openai.contoso.day/v1</code></td></tr>
+                <tr><td>Model</td><td><code>Qwen/Qwen3.6-35B-A3B-FP8</code></td></tr>
+                <tr><td>GPU</td><td>NVIDIA H100 NVL (94 GB VRAM)</td></tr>
+                <tr><td>VM SKU</td><td>Standard_NC40ads_H100_v5</td></tr>
+                <tr><td>Region</td><td>Indonesia Central (indonesiacentral)</td></tr>
+                <tr><td>Public IP</td><td>70.153.148.66</td></tr>
+                <tr><td>Resource Group</td><td>sglang-rg</td></tr>
+                <tr><td>VM Name</td><td>sglang-h100</td></tr>
+                <tr><td>SSH User</td><td>azureuser</td></tr>
+                <tr><td>API Key Location</td><td><code>deploy/.secrets/api_key</code></td></tr>
+                <tr><td>TLS Issuer</td><td>Let's Encrypt (YE1)</td></tr>
+                <tr><td>Max Model Length</td><td>262,144 tokens</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>Python SDK Example</h3>
+    <pre><code>from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://openai.contoso.day/v1",
+    api_key="YOUR_API_KEY"
+)
+
+response = client.chat.completions.create(
+    model="Qwen/Qwen3.6-35B-A3B-FP8",
+    messages=[{"role": "user", "content": "Hello, world!"}],
+)
+
+print(response.choices[0].message.content)</code></pre>
+
+    <h3>Tool Calling Example</h3>
+    <pre><code># Test tool-calling from PowerShell
+.\deploy\test-tool-calling.ps1
+
+# Or query weather via tool-calling
+.\deploy\query-weather.ps1 "Jakarta" "Surabaya"</code></pre>
+</section>
+
+</div>
+
+<!-- ==================== FOOTER ==================== -->
+<footer class="footer">
+    <p>Workshop documentation generated for <a href="https://github.com/ibranibeny/sglang-azure-workshop" target="_blank">ibranibeny/sglang-azure-workshop</a></p>
+    <p style="margin-top: 0.5rem;">Qwen3.6-35B-A3B-FP8 · Azure H100 · SGLang · Caddy · Indonesia Central</p>
+</footer>
+
+</body>
+</html>
