@@ -1,961 +1,797 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Workshop: SGLang on Azure H100 — Deploy LLM Inference Endpoint</title>
-    <style>
-        :root {
-            --bg: #ffffff;
-            --bg-alt: #f8fafc;
-            --bg-code: #f1f5f9;
-            --text: #0f172a;
-            --text-muted: #475569;
-            --text-light: #64748b;
-            --border: #e2e8f0;
-            --border-strong: #cbd5e1;
-            --accent-blue: #2563eb;
-            --accent-blue-light: #dbeafe;
-            --accent-cyan: #0891b2;
-            --accent-green: #16a34a;
-            --accent-green-light: #dcfce7;
-            --accent-amber: #d97706;
-            --accent-amber-light: #fef3c7;
-            --accent-red: #dc2626;
-            --accent-red-light: #fee2e2;
-            --accent-purple: #9333ea;
-            --accent-purple-light: #f3e8ff;
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.7;
-            font-size: 16px;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="A sequential workshop for deploying a secure OpenAI-compatible SGLang endpoint on an Azure H100 VM.">
+  <title>Workshop: SGLang on Azure H100 — OpenAI-Compatible Inference Endpoint</title>
+  <script>
+    (() => {
+      const param = new URLSearchParams(window.location.search).get("scoutTheme");
+      const theme =
+        param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --cp-bg: #f7f4ef;
+      --cp-bg-elevated: #fcfbf8;
+      --cp-surface: #ffffff;
+      --cp-surface-soft: #f5f5f5;
+      --cp-border: #dedede;
+      --cp-border-strong: #919191;
+      --cp-text: #242424;
+      --cp-text-muted: #5c5c5c;
+      --cp-text-soft: #6f6f6f;
+      --cp-accent: #b11f4b;
+      --cp-accent-hover: #9a1a41;
+      --cp-accent-soft: rgba(177, 31, 75, 0.08);
+      --cp-accent-fg: #ffffff;
+      --cp-success: #16a34a;
+      --cp-danger: #dc2626;
+      --cp-warning: #f59e0b;
+      --cp-link: #0078d4;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+      --cp-overlay: rgba(255, 255, 255, 0.8);
+      --cp-panel: rgba(255, 255, 255, 0.86);
+      --cp-panel-strong: rgba(255, 255, 255, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.55);
+      --cp-highlight: rgba(177, 31, 75, 0.12);
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --cp-bg: #3d3b3a;
+      --cp-bg-elevated: #343231;
+      --cp-surface: #292929;
+      --cp-surface-soft: #2e2e2e;
+      --cp-border: #474747;
+      --cp-border-strong: #5f5f5f;
+      --cp-text: #dedede;
+      --cp-text-muted: #919191;
+      --cp-text-soft: #b0b0b0;
+      --cp-accent: #fd8ea1;
+      --cp-accent-hover: #fb7b91;
+      --cp-accent-soft: rgba(253, 142, 161, 0.14);
+      --cp-accent-fg: #1a1a1a;
+      --cp-success: #4ade80;
+      --cp-danger: #f87171;
+      --cp-warning: #fbbf24;
+      --cp-link: #4da6ff;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+      --cp-overlay: rgba(41, 41, 41, 0.88);
+      --cp-panel: rgba(41, 41, 41, 0.72);
+      --cp-panel-strong: rgba(41, 41, 41, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.04);
+      --cp-highlight: rgba(253, 142, 161, 0.12);
+    }
 
-        /* ==================== HEADER ==================== */
-        .header {
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            color: #ffffff;
-            padding: 3rem 2rem 2.5rem;
-            border-bottom: 4px solid var(--accent-blue);
-        }
-        .header-inner { max-width: 1100px; margin: 0 auto; }
-        .header h1 {
-            font-size: 2.2rem;
-            font-weight: 800;
-            margin-bottom: 0.75rem;
-            letter-spacing: -0.02em;
-            line-height: 1.2;
-        }
-        .header .subtitle {
-            font-size: 1.05rem;
-            color: #cbd5e1;
-            max-width: 750px;
-            margin-bottom: 1.5rem;
-            line-height: 1.6;
-        }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 5rem; }
+    body {
+      margin: 0;
+      background: var(--cp-bg);
+      color: var(--cp-text);
+      font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 1rem;
+      line-height: 1.7;
+    }
+    a { color: var(--cp-link); }
+    a:hover { color: var(--cp-accent-hover); }
+    a:focus-visible,
+    button:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 0.1875rem solid var(--cp-accent);
+      outline-offset: 0.1875rem;
+    }
+    code, pre { font-family: Consolas, "Courier New", Courier, monospace; }
+    code {
+      padding: 0.125rem 0.35rem;
+      border: 0.0625rem solid var(--cp-border);
+      border-radius: 0.25rem;
+      background: var(--cp-surface-soft);
+      color: var(--cp-text);
+      font-size: 0.9em;
+      overflow-wrap: anywhere;
+    }
+    pre {
+      margin: 0;
+      padding: 1rem 1.125rem;
+      overflow-x: auto;
+      border: 0.0625rem solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-bg-elevated);
+      color: var(--cp-text);
+      line-height: 1.55;
+      tab-size: 2;
+    }
+    pre code { padding: 0; border: 0; background: transparent; }
+    h1, h2, h3, h4 { line-height: 1.25; }
+    h1 { margin: 0 0 1rem; font-size: clamp(2rem, 5vw, 3.35rem); letter-spacing: -0.04em; }
+    h2 { margin: 0 0 1rem; font-size: clamp(1.55rem, 3vw, 2.05rem); letter-spacing: -0.025em; }
+    h3 { margin: 1.75rem 0 0.65rem; font-size: 1.25rem; }
+    h4 { margin: 0 0 0.45rem; font-size: 0.9rem; letter-spacing: 0.035em; text-transform: uppercase; }
+    p { margin: 0 0 1rem; }
+    ul, ol { padding-left: 1.35rem; }
+    li + li { margin-top: 0.35rem; }
 
-        /* Metadata block */
-        .meta-block {
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 10px;
-            padding: 1rem 1.5rem;
-            margin-bottom: 1.5rem;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem 2rem;
-            font-size: 0.88rem;
-        }
-        .meta-block .meta-item {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            color: #e2e8f0;
-        }
-        .meta-block .meta-item .icon { font-size: 1rem; }
-        .meta-block .meta-item strong { color: #93c5fd; }
+    .skip-link {
+      position: fixed;
+      z-index: 100;
+      top: 0.5rem;
+      left: 0.5rem;
+      padding: 0.65rem 0.9rem;
+      transform: translateY(-160%);
+      border-radius: 0.625rem;
+      background: var(--cp-accent);
+      color: var(--cp-accent-fg);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .skip-link:focus { transform: translateY(0); }
 
-        /* Quick badges */
-        .quick-badges {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-        }
-        .quick-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            padding: 0.3rem 0.8rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            color: #e2e8f0;
-        }
-        .quick-badge.live {
-            background: rgba(34, 197, 94, 0.2);
-            color: #4ade80;
-            border-color: rgba(34, 197, 94, 0.4);
-            font-weight: 700;
-        }
+    .topbar {
+      position: sticky;
+      z-index: 40;
+      top: 0;
+      display: flex;
+      min-height: 4rem;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.6rem max(1rem, calc((100vw - 75rem) / 2));
+      border-bottom: 0.0625rem solid var(--cp-border);
+      background: var(--cp-panel-strong);
+      box-shadow: 0 0 2px var(--cp-border), 0 1px 2px var(--cp-border);
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      color: var(--cp-text);
+      font-weight: 750;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .brand-mark {
+      display: grid;
+      width: 2rem;
+      height: 2rem;
+      place-items: center;
+      border-radius: 0.625rem;
+      background: var(--cp-accent);
+      color: var(--cp-accent-fg);
+      font-weight: 800;
+    }
+    .topnav { display: flex; min-width: 0; max-width: 100%; align-items: center; gap: 0.15rem; margin-left: auto; }
+    .topnav a {
+      padding: 0.45rem 0.65rem;
+      border-radius: 0.625rem;
+      color: var(--cp-text-muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .topnav a:hover { background: var(--cp-accent-soft); color: var(--cp-accent); }
+    .toc-toggle {
+      display: none;
+      padding: 0.55rem 0.75rem;
+      border: 0.0625rem solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-surface);
+      color: var(--cp-text);
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+    }
 
-        /* ==================== CONTAINER ==================== */
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 0 2rem;
-        }
+    .page-shell {
+      display: grid;
+      grid-template-columns: 18.125rem minmax(0, 50rem);
+      gap: 2.125rem;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .content-list {
+      position: sticky;
+      top: 5.5rem;
+      align-self: start;
+      max-height: calc(100vh - 7rem);
+      overflow: auto;
+      padding: 1rem;
+      border: 0.0625rem solid var(--cp-border);
+      border-radius: 1rem;
+      background: var(--cp-surface);
+      box-shadow: 0 0 2px var(--cp-border), 0 1px 2px var(--cp-border);
+    }
+    .content-list h2 {
+      margin: 0 0 0.75rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .content-list ul { margin: 0; padding: 0; list-style: none; }
+    .content-list li + li { margin-top: 0.1rem; }
+    .content-list a {
+      display: block;
+      padding: 0.38rem 0.55rem;
+      border-left: 0.1875rem solid transparent;
+      border-radius: 0.375rem;
+      color: var(--cp-text-muted);
+      font-size: 0.85rem;
+      line-height: 1.35;
+      text-decoration: none;
+    }
+    .content-list a:hover,
+    .content-list a.active {
+      border-left-color: var(--cp-accent);
+      background: var(--cp-accent-soft);
+      color: var(--cp-accent);
+    }
+    .content-list .nested a { padding-left: 1.1rem; font-size: 0.8rem; }
 
-        /* ==================== TABLE OF CONTENTS ==================== */
-        .toc {
-            background: var(--bg-alt);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 1.5rem 2rem;
-            margin: 2rem 0;
-        }
-        .toc h2 {
-            font-size: 1.2rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            color: var(--text);
-        }
-        .toc ol {
-            padding-left: 1.5rem;
-        }
-        .toc li {
-            padding: 0.3rem 0;
-        }
-        .toc a {
-            color: var(--accent-blue);
-            text-decoration: none;
-            font-weight: 500;
-        }
-        .toc a:hover { text-decoration: underline; }
-        .toc .sub {
-            padding-left: 1rem;
-            font-size: 0.92rem;
-        }
+    .workshop-content { min-width: 0; }
+    .chapter,
+    .lab-step {
+      scroll-margin-top: 5rem;
+      margin-bottom: 1.5rem;
+      padding: clamp(1.25rem, 3vw, 2rem);
+      border: 0.0625rem solid var(--cp-border);
+      border-radius: 1rem;
+      background: var(--cp-surface);
+      box-shadow: 0 0 2px var(--cp-border), 0 1px 2px var(--cp-border);
+    }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(1.5rem, 5vw, 3.5rem);
+    }
+    .hero::after {
+      position: absolute;
+      right: -4rem;
+      bottom: -5rem;
+      width: 13rem;
+      height: 13rem;
+      border: 2rem solid var(--cp-accent-soft);
+      border-radius: 50%;
+      content: "";
+      pointer-events: none;
+    }
+    .eyebrow {
+      margin-bottom: 0.75rem;
+      color: var(--cp-accent);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .lede { max-width: 43rem; color: var(--cp-text-muted); font-size: 1.1rem; }
+    .metadata {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem 1.25rem;
+      margin: 1.5rem 0 0;
+      padding: 1rem;
+      border-left: 0.25rem solid var(--cp-accent);
+      background: var(--cp-bg-elevated);
+    }
+    .metadata div { color: var(--cp-text-muted); font-size: 0.9rem; }
+    .metadata strong { color: var(--cp-text); }
 
-        /* ==================== SECTIONS ==================== */
-        section {
-            padding: 2.5rem 0;
-            border-bottom: 1px solid var(--border);
-        }
-        section:last-child { border-bottom: none; }
-        h2 {
-            font-size: 1.6rem;
-            font-weight: 700;
-            margin-bottom: 1.25rem;
-            color: var(--text);
-            letter-spacing: -0.01em;
-        }
-        h3 {
-            font-size: 1.2rem;
-            font-weight: 600;
-            margin: 1.75rem 0 0.75rem;
-            color: var(--accent-blue);
-        }
-        h4 {
-            font-size: 1.05rem;
-            font-weight: 600;
-            margin: 1.25rem 0 0.5rem;
-            color: var(--text);
-        }
-        p { margin-bottom: 1rem; color: var(--text-muted); }
+    .principle,
+    .callout {
+      margin: 1rem 0;
+      padding: 1rem 1.125rem;
+      border: 0.0625rem solid var(--cp-border);
+      border-left: 0.25rem solid var(--cp-accent);
+      border-radius: 0 0.625rem 0.625rem 0;
+      background: var(--cp-bg-elevated);
+    }
+    .principle p,
+    .callout p { margin: 0; }
+    .purpose { border-left-color: var(--cp-link); }
+    .expected { border-left-color: var(--cp-warning); }
+    .checkpoint { border-left-color: var(--cp-success); }
+    .danger { border-left-color: var(--cp-danger); }
+    .security { border-left-color: var(--cp-accent); }
 
-        /* ==================== CARDS ==================== */
-        .card {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            box-shadow: var(--shadow-sm);
-        }
-        .card-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
-            gap: 1.25rem;
-            margin: 1.5rem 0;
-        }
-        .card-sm {
-            background: var(--bg-alt);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 1.25rem;
-            transition: all 0.2s ease;
-        }
-        .card-sm:hover {
-            border-color: var(--accent-blue);
-            box-shadow: var(--shadow-md);
-        }
-        .card-sm h4 {
-            margin: 0 0 0.5rem;
-            color: var(--text);
-            font-size: 1rem;
-        }
-        .card-sm p { margin: 0; font-size: 0.9rem; color: var(--text-muted); }
-        .tag {
-            display: inline-block;
-            background: var(--accent-blue-light);
-            color: var(--accent-blue);
-            padding: 0.15rem 0.6rem;
-            border-radius: 6px;
-            font-size: 0.72rem;
-            font-weight: 700;
-            margin-bottom: 0.6rem;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-        }
+    .objective-grid,
+    .concept-grid,
+    .test-grid,
+    .troubleshooting-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .mini-card {
+      padding: 1rem;
+      border: 0.0625rem solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-bg-elevated);
+    }
+    .mini-card p { margin: 0; color: var(--cp-text-muted); font-size: 0.92rem; }
 
-        /* ==================== CODE ==================== */
-        code, pre {
-            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-        }
-        code {
-            background: var(--bg-code);
-            padding: 0.15rem 0.45rem;
-            border-radius: 4px;
-            font-size: 0.88em;
-            color: var(--accent-cyan);
-            border: 1px solid var(--border);
-        }
-        pre {
-            background: var(--bg-code);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.25rem;
-            overflow-x: auto;
-            margin: 1rem 0;
-            font-size: 0.85rem;
-            line-height: 1.6;
-        }
-        pre code {
-            background: none;
-            padding: 0;
-            color: var(--text);
-            border: none;
-        }
+    .table-wrap { max-width: 100%; overflow-x: auto; border: 0.0625rem solid var(--cp-border); border-radius: 0.625rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { padding: 0.75rem 0.9rem; border-bottom: 0.0625rem solid var(--cp-border); text-align: left; vertical-align: top; }
+    th { background: var(--cp-bg-elevated); color: var(--cp-text); }
+    td { color: var(--cp-text-muted); }
+    tr:last-child td { border-bottom: 0; }
 
-        /* ==================== MERMAID ==================== */
-        .mermaid {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 2rem;
-            margin: 1.5rem 0;
-            display: flex;
-            justify-content: center;
-            box-shadow: var(--shadow-sm);
-        }
-        .mermaid svg { max-width: 100%; height: auto; }
+    .mermaid {
+      margin: 1.25rem 0;
+      padding: 1rem;
+      overflow-x: auto;
+      border: 0.0625rem solid var(--cp-border);
+      border-radius: 0.625rem;
+      background: var(--cp-bg-elevated);
+      text-align: center;
+    }
+    .mermaid svg { max-width: 100%; height: auto; }
 
-        /* ==================== STEPS ==================== */
-        .step {
-            display: flex;
-            gap: 1.25rem;
-            margin-bottom: 2rem;
-        }
-        .step-num {
-            flex-shrink: 0;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1.1rem;
-            border: 2px solid;
-        }
-        .step-blue { background: var(--accent-blue-light); color: var(--accent-blue); border-color: var(--accent-blue); }
-        .step-purple { background: var(--accent-purple-light); color: var(--accent-purple); border-color: var(--accent-purple); }
-        .step-green { background: var(--accent-green-light); color: var(--accent-green); border-color: var(--accent-green); }
-        .step-red { background: var(--accent-red-light); color: var(--accent-red); border-color: var(--accent-red); }
-        .step-content { flex: 1; }
-        .step-content h4 { margin-top: 0.3rem; }
+    .step-heading { display: flex; align-items: flex-start; gap: 0.85rem; }
+    .step-number {
+      display: grid;
+      flex: 0 0 2.4rem;
+      width: 2.4rem;
+      height: 2.4rem;
+      place-items: center;
+      border-radius: 0.625rem;
+      background: var(--cp-accent);
+      color: var(--cp-accent-fg);
+      font-weight: 800;
+    }
+    .step-heading h3 { margin: 0; font-size: 1.35rem; }
+    .step-heading p { margin: 0.2rem 0 0; color: var(--cp-text-muted); }
+    .run { margin: 1rem 0; }
+    .run h4 { color: var(--cp-text-soft); }
 
-        /* ==================== TABLES ==================== */
-        .table-wrap {
-            overflow-x: auto;
-            margin: 1rem 0;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
-        th, td {
-            padding: 0.75rem 1rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-        th {
-            background: var(--bg-alt);
-            font-weight: 600;
-            color: var(--text);
-            border-bottom: 2px solid var(--border-strong);
-        }
-        td { color: var(--text-muted); }
-        tr:last-child td { border-bottom: none; }
-        tr:hover td { background: var(--bg-alt); }
+    .completion-list { padding: 0; list-style: none; }
+    .completion-list li { position: relative; padding-left: 1.8rem; }
+    .completion-list li::before { position: absolute; left: 0; color: var(--cp-success); content: "✓"; font-weight: 900; }
+    .reference-list li { word-break: break-word; }
+    .site-footer {
+      padding: 1.5rem;
+      border-top: 0.0625rem solid var(--cp-border);
+      color: var(--cp-text-muted);
+      text-align: center;
+    }
 
-        /* ==================== NOTES ==================== */
-        .note {
-            background: var(--accent-amber-light);
-            border: 1px solid #fbbf24;
-            border-left: 4px solid var(--accent-amber);
-            padding: 1rem 1.25rem;
-            border-radius: 0 8px 8px 0;
-            margin: 1rem 0;
-            font-size: 0.92rem;
-        }
-        .note strong { color: var(--accent-amber); }
-        .note p { margin: 0; color: var(--text); }
-
-        /* ==================== ENDPOINT BOX ==================== */
-        .endpoint-box {
-            background: var(--accent-green-light);
-            border: 1px solid #86efac;
-            border-left: 4px solid var(--accent-green);
-            padding: 1rem 1.25rem;
-            margin: 1rem 0;
-            font-family: 'Cascadia Code', monospace;
-            font-size: 1rem;
-            color: var(--accent-green);
-            word-break: break-all;
-            border-radius: 0 8px 8px 0;
-        }
-
-        /* ==================== CHECKLIST ==================== */
-        .checklist { list-style: none; padding: 0; }
-        .checklist li {
-            padding: 0.45rem 0;
-            display: flex;
-            align-items: flex-start;
-            gap: 0.5rem;
-            color: var(--text-muted);
-        }
-        .checklist li::before { content: "✓"; flex-shrink: 0; color: var(--accent-green); font-weight: 700; }
-
-        /* ==================== ADDITIONAL LINKS SIDEBAR ==================== */
-        .additional-links {
-            background: var(--bg-alt);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 1.25rem 1.5rem;
-            margin: 2rem 0;
-        }
-        .additional-links h3 {
-            font-size: 1rem;
-            font-weight: 700;
-            margin: 0 0 0.75rem;
-            color: var(--text);
-        }
-        .additional-links ul {
-            list-style: none;
-            padding: 0;
-        }
-        .additional-links li {
-            padding: 0.25rem 0;
-        }
-        .additional-links a {
-            color: var(--accent-blue);
-            text-decoration: none;
-            font-size: 0.9rem;
-        }
-        .additional-links a:hover { text-decoration: underline; }
-
-        /* ==================== FOOTER ==================== */
-        .footer {
-            text-align: center;
-            padding: 2.5rem 2rem;
-            color: var(--text-light);
-            font-size: 0.88rem;
-            border-top: 1px solid var(--border);
-            background: var(--bg-alt);
-        }
-        .footer a { color: var(--accent-blue); text-decoration: none; font-weight: 500; }
-        .footer a:hover { text-decoration: underline; }
-
-        /* ==================== RESPONSIVE ==================== */
-        @media (max-width: 768px) {
-            .header h1 { font-size: 1.6rem; }
-            .header .subtitle { font-size: 0.95rem; }
-            .meta-block { flex-direction: column; gap: 0.5rem; }
-            .card-grid { grid-template-columns: 1fr; }
-            .step { flex-direction: column; gap: 0.75rem; }
-            .toc { padding: 1rem 1.25rem; }
-        }
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
-    <script>
-        mermaid.initialize({
-            startOnLoad: true,
-            theme: 'default',
-            themeVariables: {
-                primaryColor: '#dbeafe',
-                primaryTextColor: '#0f172a',
-                primaryBorderColor: '#2563eb',
-                lineColor: '#3b82f6',
-                secondaryColor: '#f1f5f9',
-                tertiaryColor: '#ffffff',
-                fontFamily: "'Segoe UI', -apple-system, sans-serif",
-                fontSize: '14px',
-                nodeBorder: '#2563eb',
-                clusterBkg: '#f8fafc',
-                clusterBorder: '#cbd5e1'
-            },
-            flowchart: { curve: 'basis', padding: 20, useMaxWidth: true }
-        });
-    </script>
+    @media (max-width: 860px) {
+      .topbar { flex-wrap: wrap; }
+      .topnav { order: 3; width: 100%; overflow-x: auto; margin-left: 0; }
+      .toc-toggle { display: inline-block; margin-left: auto; }
+      .page-shell { grid-template-columns: minmax(0, 1fr); gap: 1rem; padding: 1rem; }
+      .content-list { display: none; position: static; max-height: none; }
+      .content-list.is-open { display: block; }
+      .metadata,
+      .objective-grid,
+      .concept-grid,
+      .test-grid,
+      .troubleshooting-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 520px) {
+      .topbar { padding: 0.6rem 0.75rem; }
+      .brand span:last-child { display: none; }
+      .chapter, .lab-step { padding: 1.05rem; }
+      .hero { padding: 1.25rem; }
+      h1 { font-size: 2rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#workshop-content">Skip to workshop content</a>
 
-<!-- ==================== HEADER ==================== -->
-<header class="header">
-    <div class="header-inner">
-        <h1>Workshop: SGLang on Azure H100 — Deploy LLM Inference Endpoint</h1>
-        <p class="subtitle">Deploy a production-grade, OpenAI-compatible LLM inference endpoint on Azure infrastructure using SGLang as the serving engine and Caddy as a reverse proxy with HTTPS termination.</p>
+  <header class="topbar">
+    <a class="brand" href="#objectives" aria-label="SGLang workshop home">
+      <span class="brand-mark" aria-hidden="true">S</span>
+      <span>SGLang Workshop</span>
+    </a>
+    <nav class="topnav" aria-label="Primary navigation">
+      <a href="#objectives">Workshop</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#deployment">Deploy</a>
+      <a href="#validation">Validate</a>
+      <a href="https://github.com/ibranibeny/sglang-azure-workshop" target="_blank" rel="noopener noreferrer">Repository</a>
+    </nav>
+    <button id="content-list-toggle" class="toc-toggle" type="button" aria-controls="content-list" aria-expanded="false">On this page</button>
+  </header>
 
-        <!-- Metadata block -->
-        <div class="meta-block">
-            <div class="meta-item"><span class="icon">📄</span> Type: <strong>Hands-on Workshop</strong></div>
-            <div class="meta-item"><span class="icon">👥</span> Audience: <strong>DevOps / ML Engineers</strong></div>
-            <div class="meta-item"><span class="icon">⏱️</span> Duration: <strong>± 2 hours</strong></div>
-            <div class="meta-item"><span class="icon">📊</span> Level: <strong>L200</strong></div>
-            <div class="meta-item"><span class="icon">🤖</span> Use case: <strong>Qwen3.6-35B-A3B-FP8 on H100</strong></div>
-        </div>
-
-        <!-- Quick badges -->
-        <div class="quick-badges">
-            <div class="quick-badge"><span class="icon">🤖</span> Qwen3.6-35B-A3B-FP8</div>
-            <div class="quick-badge"><span class="icon">🎮</span> NVIDIA H100 NVL (94 GB)</div>
-            <div class="quick-badge"><span class="icon">📍</span> Indonesia Central</div>
-            <div class="quick-badge"><span class="icon">🔒</span> Let's Encrypt TLS</div>
-            <div class="quick-badge live"><span class="icon">🟢</span> LIVE</div>
-        </div>
-    </div>
-</header>
-
-<div class="container">
-
-<!-- ==================== TABLE OF CONTENTS ==================== -->
-<nav class="toc">
-    <h2>Daftar Isi</h2>
-    <ol>
-        <li><a href="#overview">Overview & Objectives</a></li>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#architecture">Architecture</a></li>
-        <li><a href="#deployment">Deployment Guidance</a></li>
-        <li><a href="#testing">Testing the Endpoint</a></li>
-        <li><a href="#troubleshooting">Troubleshooting</a></li>
-        <li><a href="#quick-reference">Quick Reference</a></li>
-        <li><a href="#custom-domain">Custom Domain Configuration</a></li>
-        <li><a href="#github-clone">GitHub Clone</a></li>
-        <li><a href="#checklist">Checklist Completion</a></li>
-        <li><a href="#references">References</a></li>
-    </ol>
-</nav>
-
-<!-- ==================== 1. OVERVIEW & OBJECTIVES ==================== -->
-<section id="overview">
-    <h2>1. Overview & Objectives</h2>
-    <p>This workshop demonstrates how to deploy a large language model (LLM) inference endpoint on Azure infrastructure using <strong>SGLang</strong> as the serving engine and <strong>Caddy</strong> as a reverse proxy with HTTPS termination. The result is a fully functional OpenAI-compatible API endpoint accessible over public HTTPS.</p>
-
-    <div class="card">
-        <h4>Learning Objectives</h4>
-        <ul class="checklist">
-            <li>Provision an Azure VM with NVIDIA H100 GPU (Standard_NC40ads_H100_v5)</li>
-            <li>Deploy SGLang to serve the Qwen3.6-35B-A3B-FP8 model with FP8 quantization</li>
-            <li>Configure Caddy as an HTTPS reverse proxy with Let's Encrypt TLS certificates</li>
-            <li>Enforce API-key authentication on all inference requests</li>
-            <li>Configure Azure Network Security Group (NSG) rules for controlled access</li>
-            <li>Verify end-to-end inference including tool-calling capabilities</li>
-            <li>Understand the networking considerations: Global Secure Access (GSA) and WSL outbound restrictions</li>
+  <div class="page-shell">
+    <aside id="content-list" class="content-list" aria-label="Content List">
+      <h2>Content List</h2>
+      <nav aria-label="On this page">
+        <ul>
+          <li><a href="#objectives">1. Objectives</a></li>
+          <li><a href="#prerequisites">2. Prerequisites</a></li>
+          <li><a href="#overview">3. Concept overview</a></li>
+          <li><a href="#architecture">4. Architecture</a></li>
+          <li><a href="#deployment">5. Guided deployment</a></li>
+          <li class="nested"><a href="#step-0">Step 0 — Verify prerequisites</a></li>
+          <li class="nested"><a href="#step-1">Step 1 — Clone repository</a></li>
+          <li class="nested"><a href="#step-2">Step 2 — Configure domain</a></li>
+          <li class="nested"><a href="#step-3">Step 3 — Generate API key</a></li>
+          <li class="nested"><a href="#step-4">Step 4 — Provision H100 VM</a></li>
+          <li class="nested"><a href="#step-5">Step 5 — Verify VM state</a></li>
+          <li class="nested"><a href="#step-6">Step 6 — Secure network</a></li>
+          <li class="nested"><a href="#step-7">Step 7 — Launch endpoint</a></li>
+          <li class="nested"><a href="#step-8">Step 8 — Validate endpoint</a></li>
+          <li class="nested"><a href="#step-9">Step 9 — Control cost</a></li>
+          <li><a href="#validation">6. Validation evidence</a></li>
+          <li><a href="#troubleshooting">7. Troubleshooting</a></li>
+          <li><a href="#completion">8. Completion checklist</a></li>
+          <li><a href="#references">9. References</a></li>
         </ul>
-    </div>
+      </nav>
+    </aside>
 
-    <h3>What You'll Build</h3>
-    <p>A public HTTPS endpoint at <code>https://openai.contoso.day/v1</code> that accepts OpenAI-compatible chat completion requests, enforces API-key authentication, and routes inference to a Qwen3.6 model running on an H100 GPU.</p>
-    <div class="endpoint-box">https://openai.contoso.day/v1/chat/completions</div>
-</section>
+    <main id="workshop-content" class="workshop-content" tabindex="-1">
+      <section id="objectives" class="chapter hero">
+        <p class="eyebrow">Hands-on workshop · Azure GPU inference</p>
+        <h1>Deploy SGLang on Azure H100</h1>
+        <p class="lede">Build a secure, OpenAI-compatible endpoint for <strong>Qwen3.6-35B-A3B-FP8</strong>, served by SGLang on one Azure H100 NVL GPU and protected by Caddy HTTPS plus API-key authentication.</p>
+        <div class="metadata" aria-label="Workshop metadata">
+          <div><strong>Document type:</strong> Tutorial (Diátaxis)</div>
+          <div><strong>Audience:</strong> DevOps and ML engineers</div>
+          <div><strong>Duration:</strong> Approximately 2 hours</div>
+          <div><strong>Level:</strong> L200</div>
+          <div><strong>Final API:</strong> <code>https://&lt;your-domain&gt;/v1</code></div>
+          <div><strong>Updated:</strong> 18 July 2026</div>
+        </div>
 
-<!-- ==================== 2. PREREQUISITES ==================== -->
-<section id="prerequisites">
-    <h2>2. Prerequisites</h2>
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr><th>Item</th><th>Requirement</th></tr>
-            </thead>
+        <h2>1. Objectives</h2>
+        <p>After completing this workshop, you can:</p>
+        <div class="objective-grid">
+          <div class="mini-card"><h3>Provision</h3><p>Create an Azure <code>Standard_NC40ads_H100_v5</code> VM in <code>indonesiacentral</code>.</p></div>
+          <div class="mini-card"><h3>Serve</h3><p>Run <code>Qwen/Qwen3.6-35B-A3B-FP8</code> with SGLang and a 262144-token context configuration.</p></div>
+          <div class="mini-card"><h3>Secure</h3><p>Keep SGLang on loopback and expose only the Caddy HTTPS gateway with secret-key enforcement.</p></div>
+          <div class="mini-card"><h3>Verify</h3><p>Prove health, model discovery, chat completion, and structured tool calling end to end.</p></div>
+        </div>
+        <div class="principle">
+          <p><strong>Tutorial rule:</strong> follow the workshop in order. Every deployment step ends with a checkpoint that must pass before you continue.</p>
+        </div>
+      </section>
+
+      <section id="prerequisites" class="chapter">
+        <p class="eyebrow">Prepare before provisioning</p>
+        <h2>2. Prerequisites</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Requirement</th><th>What you need</th><th>Why</th></tr></thead>
             <tbody>
-                <tr><td>Azure CLI</td><td>Installed and authenticated: <code>az login</code></td></tr>
-                <tr><td>Azure Subscription</td><td>With H100 quota in Indonesia Central</td></tr>
-                <tr><td>Domain</td><td>Configured on Cloudflare (DNS-only mode)</td></tr>
-                <tr><td>SSH Key Pair</td><td>Auto-generated if not present</td></tr>
-                <tr><td>Docker</td><td>Installed on the target VM</td></tr>
-                <tr><td>Windows PowerShell</td><td>For testing (WSL is blocked by GSA)</td></tr>
+              <tr><td>Azure access</td><td>Azure CLI installed and authenticated with <code>az login</code></td><td>The numbered scripts create and manage Azure resources.</td></tr>
+              <tr><td>GPU quota</td><td>At least 40 NCads H100 v5 family vCPUs in <code>indonesiacentral</code></td><td>The default <code>Standard_NC40ads_H100_v5</code> uses 40 vCPUs and one H100 NVL.</td></tr>
+              <tr><td>Local shell</td><td>Bash on Linux or WSL, plus Git and OpenSSL</td><td>The deployment automation and API-key generator are Bash scripts.</td></tr>
+              <tr><td>Model access</td><td>An optional <code>HF_TOKEN</code> if Hugging Face requires authentication for the selected model</td><td>SGLang downloads model weights on first launch.</td></tr>
+              <tr><td>Domain</td><td>A DNS name you control for publicly trusted TLS</td><td>Caddy uses Let's Encrypt when <code>TLS_DOMAIN</code> is configured.</td></tr>
+              <tr><td>Validation shell</td><td>Windows PowerShell in the documented corporate Global Secure Access environment</td><td>GSA can block WSL from reaching the public endpoint even when Azure is healthy.</td></tr>
             </tbody>
-        </table>
-    </div>
-</section>
+          </table>
+        </div>
+        <div class="callout danger">
+          <p><strong>Cost warning:</strong> an H100 VM is expensive. Use Step 9 to deallocate it when idle or delete the resource group after the workshop.</p>
+        </div>
+        <div class="callout security">
+          <p><strong>Secret handling:</strong> never place a Hugging Face token, API key, subscription ID, or generated public IP in workshop source or version control.</p>
+        </div>
+      </section>
 
-<!-- ==================== 3. ARCHITECTURE ==================== -->
-<section id="architecture">
-    <h2>3. Architecture</h2>
-    <p>The following diagram shows the complete deployment topology, from client request through Cloudflare DNS, Azure NSG, Caddy reverse proxy, to the SGLang inference engine on the H100 GPU.</p>
+      <section id="overview" class="chapter">
+        <p class="eyebrow">Understand the system</p>
+        <h2>3. Concept overview</h2>
+        <p>The deployment combines four components with one responsibility each:</p>
+        <div class="concept-grid">
+          <div class="mini-card"><h3>Azure H100 VM</h3><p>One NVIDIA H100 NVL with 94 GB VRAM runs the model. The exact default SKU is <code>Standard_NC40ads_H100_v5</code>.</p></div>
+          <div class="mini-card"><h3>SGLang</h3><p>Provides the OpenAI-compatible API, reasoning parser <code>qwen3</code>, and tool parser <code>qwen3_coder</code>.</p></div>
+          <div class="mini-card"><h3>Caddy</h3><p>Terminates HTTPS, renews Let's Encrypt certificates, checks the secret key, and proxies accepted requests.</p></div>
+          <div class="mini-card"><h3>Network boundary</h3><p>SGLang publishes port 30000 only on <code>127.0.0.1</code>. Clients reach Caddy on HTTPS instead of the model server directly.</p></div>
+        </div>
+        <h3>Authentication contract</h3>
+        <p>The gateway accepts either <code>Authorization: Bearer &lt;key&gt;</code> for OpenAI-compatible clients or <code>api-key: &lt;key&gt;</code> for Foundry ModelGateway. The unauthenticated <code>/health</code> path remains available for uptime checks.</p>
+      </section>
 
-    <div class="mermaid">
-flowchart TB
-    subgraph Internet["🌐 Internet"]
-        Client["🖥️ Client App / curl / Python SDK"]
-    end
-
-    subgraph Cloudflare["☁️ Cloudflare (DNS-Only)"]
-        DNS["DNS Record<br/>openai.contoso.day → Public IP"]
-    end
-
-    subgraph Azure["☁️ Azure — Indonesia Central"]
-        subgraph RG["📦 Resource Group: sglang-rg"]
-            PIP["📌 Public IP"]
-
-            subgraph NSG["🛡️ NSG: sglang-nsg"]
-                direction TB
-                N1["Inbound: 22, 80, 443"]
-                N2["Outbound: All"]
-            end
-
-            subgraph VM["💻 VM: sglang-h100<br/>Standard_NC40ads_H100_v5"]
-                subgraph Docker["🐳 Docker"]
-                    Caddy["🔒 Caddy v2<br/>HTTPS :443<br/>Let's Encrypt TLS<br/>API Key Auth"]
-                    SGLang["🚀 SGLang Server<br/>127.0.0.1:30000"]
-                end
-                GPU["🎮 NVIDIA H100 NVL<br/>94 GB VRAM"]
-                HFCache["📦 HF Cache<br/>/opt/hf-cache"]
-            end
-        end
-    end
-
-    Client -->|"HTTPS"| DNS
-    DNS -->|"A Record"| PIP
-    PIP --> NSG
-    NSG --> Caddy
-    Caddy -->|"Proxy + Auth"| SGLang
+      <section id="architecture" class="chapter">
+        <p class="eyebrow">Follow the request</p>
+        <h2>4. Architecture</h2>
+        <p>The client resolves your DNS name, reaches the VM through the required ports, authenticates at Caddy, and only then reaches SGLang on loopback.</p>
+        <div class="mermaid" role="img" aria-label="Azure H100 deployment architecture">
+flowchart LR
+  Client[Client or OpenAI SDK] -->|HTTPS 443| DNS[DNS name]
+  DNS --> NSG[Azure NSG]
+  subgraph VM[Azure NC40ads H100 v5 VM]
+    Caddy[Caddy: TLS and API key]
+    SGLang[SGLang: 127.0.0.1:30000]
+    GPU[NVIDIA H100 NVL 94 GB]
+    Cache[Hugging Face cache]
+    Caddy -->|Authenticated proxy| SGLang
     SGLang --> GPU
-    SGLang --> HFCache
-
-    style Caddy fill:#22c55e,color:#fff,stroke:#16a34a,stroke-width:2px
-    style SGLang fill:#3b82f6,color:#fff,stroke:#2563eb,stroke-width:2px
-    style GPU fill:#f59e0b,color:#fff,stroke:#d97706,stroke-width:2px
-    style DNS fill:#a855f7,color:#fff,stroke:#9333ea,stroke-width:2px
-    style PIP fill:#64748b,color:#fff,stroke:#475569,stroke-width:2px
-    style N1 fill:#ef4444,color:#fff,stroke:#dc2626,stroke-width:2px
-    style N2 fill:#22c55e,color:#fff,stroke:#16a34a,stroke-width:2px
-    </div>
-
-    <h3>Request Flow</h3>
-    <div class="mermaid">
+    SGLang --> Cache
+  end
+  NSG --> Caddy
+        </div>
+        <p><em>Port 80 is required for ACME HTTP challenges. Port 22 is optional and environment-dependent; this workshop uses Azure Run Command when corporate policy blocks SSH.</em></p>
+        <h3>Authenticated request flow</h3>
+        <div class="mermaid" role="img" aria-label="Authenticated inference request flow">
 sequenceDiagram
-    participant C as 🖥️ Client
-    participant CF as ☁️ Cloudflare DNS
-    participant CA as 🔒 Caddy (HTTPS :443)
-    participant SG as 🚀 SGLang (loopback :30000)
-    participant GPU as 🎮 H100 GPU
-
-    C->>CF: DNS lookup openai.contoso.day
-    CF-->>C: Public IP
-
-    C->>CA: POST /v1/chat/completions<br/>Authorization: Bearer &lt;API_KEY&gt;
-
-    alt No API Key or Invalid
-        CA-->>C: 401 Unauthorized
-    else Valid API Key
-        CA->>SG: Forward to 127.0.0.1:30000
-        SG->>GPU: Run inference (Qwen3.6-35B-A3B-FP8)
-        GPU-->>SG: Generated tokens
-        SG-->>CA: JSON response
-        CA-->>C: 200 OK + completion
-    end
-    </div>
-</section>
-
-<!-- ==================== 4. DEPLOYMENT GUIDANCE ==================== -->
-<section id="deployment">
-    <h2>4. Deployment Guidance</h2>
-    <p>The deployment is fully automated through a series of bash scripts in the <code>deploy/</code> directory. Each script handles a specific phase of the infrastructure and application lifecycle.</p>
-
-    <h3>Phase 1: Setup</h3>
-    <div class="step">
-        <div class="step-num step-blue">1</div>
-        <div class="step-content">
-            <h4>Generate API Key</h4>
-            <p><code>deploy/00-genkey.sh</code> — Generates a 64-character random API key and stores it in <code>deploy/.secrets/api_key</code> (git-ignored, mode 600).</p>
-            <pre><code>cd deploy
-./00-genkey.sh
-# Output: API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-# Stored in: .secrets/api_key</code></pre>
+  participant Client
+  participant Caddy
+  participant SGLang
+  participant H100
+  Client->>Caddy: POST /v1/chat/completions plus secret key
+  alt Key missing or invalid
+    Caddy-->>Client: 401 Unauthorized
+  else Key accepted
+    Caddy->>SGLang: Proxy to loopback:30000
+    SGLang->>H100: Run inference
+    H100-->>SGLang: Generated tokens or tool call
+    SGLang-->>Caddy: OpenAI-compatible JSON
+    Caddy-->>Client: 200 OK
+  end
         </div>
-    </div>
+      </section>
 
-    <div class="step">
-        <div class="step-num step-blue">2</div>
-        <div class="step-content">
-            <h4>Provision VM + GPU Driver</h4>
-            <p><code>deploy/01-deploy.sh</code> — Creates the resource group, VNet, and H100 VM. Installs NVIDIA GPU driver via Azure Extension. Configures cloud-init for Docker installation.</p>
-            <pre><code>./01-deploy.sh
-# Creates:
-#   - Resource Group: sglang-rg
-#   - VM: sglang-h100 (Standard_NC40ads_H100_v5)
-#   - VNet: sglang-vnet
-#   - Public IP: [assigned] (static)
-#   - NVIDIA GPU Driver extension</code></pre>
-        </div>
-    </div>
+      <section id="deployment" class="chapter">
+        <p class="eyebrow">One path, in order</p>
+        <h2>5. Guided deployment</h2>
+        <p>Complete Steps 0–9 sequentially. Commands run from Bash unless a step explicitly says Windows PowerShell.</p>
+      </section>
 
-    <h3>Phase 2: Network</h3>
-    <div class="step">
-        <div class="step-num step-purple">3</div>
-        <div class="step-content">
-            <h4>Ensure VM is Running</h4>
-            <p><code>deploy/02-start-vm.sh</code> — Verifies the VM is in a running state before proceeding.</p>
-            <pre><code>./02-start-vm.sh
-# Waits until provisioningState=Succeeded</code></pre>
-        </div>
-    </div>
+      <section class="lab-step" id="step-0">
+        <div class="step-heading"><span class="step-number">0</span><div><h3>Verify prerequisites and quota</h3><p>Prove the operator environment is ready before Azure incurs cost.</p></div></div>
+        <div class="purpose callout"><h4>Purpose</h4><p>Confirm required local tools, Azure authentication, the selected subscription, and H100-family quota.</p></div>
+        <div class="run"><h4>Run</h4><pre><code>git --version
+openssl version
+az version
+az account show --query "{subscription:name, tenant:tenantId}" -o table
+az vm list-usage -l indonesiacentral -o table</code></pre></div>
+        <div class="expected callout"><h4>Expected result</h4><p>Each tool reports a version, Azure displays the intended subscription, and the regional usage table includes enough available NCads H100 v5 family vCPUs for the 40-vCPU VM.</p></div>
+        <div class="checkpoint callout"><h4>Checkpoint</h4><p>Do not continue until authentication works and quota for <code>Standard_NC40ads_H100_v5</code> is confirmed in <code>indonesiacentral</code>.</p></div>
+      </section>
 
-    <div class="step">
-        <div class="step-num step-purple">4</div>
-        <div class="step-content">
-            <h4>Open NSG Firewall</h4>
-            <p><code>deploy/03-open-nsg.sh</code> — Creates NSG inbound rules for SSH (22), HTTP/ACME (80), and HTTPS (443). <strong>Important:</strong> If Azure Defender strips these rules, use <code>03b-open-nsg-ports.sh</code> to restore them.</p>
-            <pre><code>./03-open-nsg.sh
-# Creates NSG rules:
-#   - AllowSSH  (port 22)
-#   - AllowACME (port 80)  — for Let's Encrypt challenges
-#   - AllowHTTPS (port 443)
+      <section class="lab-step" id="step-1">
+        <div class="step-heading"><span class="step-number">1</span><div><h3>Clone the deployment repository</h3><p>Start with the tested scripts rather than copying isolated commands.</p></div></div>
+        <div class="purpose callout"><h4>Purpose</h4><p>Obtain the central configuration, lifecycle scripts, Caddy template, and endpoint validation suite.</p></div>
+        <div class="run"><h4>Run</h4><pre><code>git clone https://github.com/ibranibeny/sglang-azure-workshop.git
+cd sglang-azure-workshop/deploy
+ls config.sh 00-genkey.sh 05-run-sglang.sh test-tool-calling.ps1</code></pre></div>
+        <div class="expected callout"><h4>Expected result</h4><p>The repository clones successfully and the four listed files are present in <code>deploy/</code>.</p></div>
+        <div class="checkpoint callout"><h4>Checkpoint</h4><p>Your current directory is <code>sglang-azure-workshop/deploy</code>, and <code>config.sh</code>, <code>00-genkey.sh</code>, and <code>05-run-sglang.sh</code> exist.</p></div>
+      </section>
 
-# If rules are stripped by Azure Defender:
-./03b-open-nsg-ports.sh</code></pre>
-        </div>
-    </div>
+      <section class="lab-step" id="step-2">
+        <div class="step-heading"><span class="step-number">2</span><div><h3>Configure the custom domain and deployment values</h3><p>Set the desired endpoint identity before provisioning.</p></div></div>
+        <div class="purpose callout"><h4>Purpose</h4><p>Review the single source of configuration and override only values that differ in your environment.</p></div>
+        <div class="run"><h4>Run</h4><pre><code># Review defaults
+source ./config.sh
+printf 'Region: %s\nVM: %s\nModel: %s\nDomain: %s\n' \
+  "$LOCATION" "$VM_SIZE" "$MODEL_PATH" "$TLS_DOMAIN"
 
-    <h3>Phase 3: Application</h3>
-    <div class="step">
-        <div class="step-num step-green">5</div>
-        <div class="step-content">
-            <h4>Launch SGLang + Caddy</h4>
-            <p><code>deploy/05-run-sglang.sh</code> — Pulls and starts both Docker containers. Performs a readiness health check on the VM's loopback interface (bypassing WSL/GSA network restrictions).</p>
-            <pre><code>./05-run-sglang.sh
-# Launches:
-#   - sglang-server: Qwen/Qwen3.6-35B-A3B-FP8 on 127.0.0.1:30000
-#   - caddy: HTTPS reverse proxy on :443
-#
-# Health check: loops curl http://127.0.0.1:30000/health
-# via az vm run-command (runs on VM, bypasses GSA)
-#
-# Tunable:
-#   READINESS_ATTEMPTS=900   (default 30 min)
-#   READINESS_INTERVAL=2     (seconds)</code></pre>
-        </div>
-    </div>
+# Example overrides for this shell session
+export TLS_DOMAIN="openai.example.com"
+export TLS_EMAIL="operator@example.com"
+# Export only when model access requires it:
+# export HF_TOKEN="hf_..."</code></pre></div>
+        <div class="expected callout"><h4>Expected result</h4><p>The defaults show <code>indonesiacentral</code>, <code>Standard_NC40ads_H100_v5</code>, and <code>Qwen/Qwen3.6-35B-A3B-FP8</code>. The repository's configured example domain is <code>openai.contoso.day</code>; replace it with a DNS name you control.</p></div>
+        <div class="checkpoint callout"><h4>Checkpoint</h4><p><code>TLS_DOMAIN</code> contains the intended custom domain. After Step 4 returns the static IP, create a DNS-only A record from this name to that IP before launching Caddy.</p></div>
+      </section>
 
-    <h3>Cleanup</h3>
-    <div class="step">
-        <div class="step-num step-red">✕</div>
-        <div class="step-content">
-            <h4>Delete Everything</h4>
-            <p><code>deploy/99-destroy.sh</code> — Deletes the resource group and all associated resources.</p>
-            <pre><code>./99-destroy.sh
-# WARNING: This permanently deletes:
-#   - Resource Group: sglang-rg
-#   - VM, NSG, VNet, Public IP, all disks
-#   - All data is lost</code></pre>
-        </div>
-    </div>
-</section>
+      <section class="lab-step" id="step-3">
+        <div class="step-heading"><span class="step-number">3</span><div><h3>Generate the API key</h3><p>Create a 256-bit secret without printing it to terminal output.</p></div></div>
+        <div class="purpose callout"><h4>Purpose</h4><p>Protect every OpenAI API path before the endpoint becomes reachable.</p></div>
+        <div class="run"><h4>Run</h4><pre><code>bash 00-genkey.sh
+ls -l .secrets/api_key
 
-<!-- ==================== 5. TESTING ==================== -->
-<section id="testing">
-    <h2>5. Testing the Endpoint</h2>
-    <p>From <strong>Windows PowerShell</strong> (not WSL — GSA blocks WSL outbound to public domains):</p>
+git check-ignore .secrets/api_key
+# Later rotation: bash 00-genkey.sh --rotate</code></pre></div>
+        <div class="expected callout"><h4>Expected result</h4><p>The script reports the secret file location but not its value. The file is stored under the git-ignored <code>deploy/.secrets/</code> directory and uses mode 600 where supported.</p></div>
+        <div class="checkpoint callout"><h4>Checkpoint</h4><p><code>.secrets/api_key</code> exists and <code>git check-ignore</code> confirms it cannot be committed. Keep the key private.</p></div>
+      </section>
 
-    <pre><code># Load API key
-$API_KEY = Get-Content deploy\.secrets\api_key
+      <section class="lab-step" id="step-4">
+        <div class="step-heading"><span class="step-number">4</span><div><h3>Provision the Azure H100 VM</h3><p>Create the resource group, network, static IP, VM, and GPU driver.</p></div></div>
+        <div class="purpose callout"><h4>Purpose</h4><p>Provision the Azure foundation idempotently from the repository's central configuration.</p></div>
+        <div class="run"><h4>Run</h4><pre><code>bash 01-deploy.sh
 
-# Health check (no auth required)
-curl https://openai.contoso.day/health
+az vm extension show \
+  -g sglang-rg --vm-name sglang-h100 \
+  -n NvidiaGpuDriverLinux \
+  --query provisioningState -o tsv</code></pre></div>
+        <div class="expected callout"><h4>Expected result</h4><p>The script creates or reuses the resource group, VNet, NSG, static public IP, NIC, Ubuntu VM, and <code>Microsoft.HpcCompute/NvidiaGpuDriverLinux</code> extension. It prints the assigned IP locally; do not paste that value into documentation.</p></div>
+        <div class="checkpoint callout"><h4>Checkpoint</h4><p>The extension reports <code>Succeeded</code>. Create the DNS-only A record described in Step 2, then immediately narrow the initial broad testing rule in Step 6.</p></div>
+      </section>
 
-# List models (authenticated)
-curl https://openai.contoso.day/v1/models `
-  -H "Authorization: Bearer $API_KEY"
+      <section class="lab-step" id="step-5">
+        <div class="step-heading"><span class="step-number">5</span><div><h3>Verify or start the VM</h3><p>Separate compute power state from application readiness.</p></div></div>
+        <div class="purpose callout"><h4>Purpose</h4><p>Ensure Azure allocated the VM before container startup and GPU validation.</p></div>
+        <div class="run"><h4>Run</h4><pre><code>bash 02-start-vm.sh
 
-# Chat completion (authenticated)
-curl https://openai.contoso.day/v1/chat/completions `
-  -H "Authorization: Bearer $API_KEY" `
-  -H 'Content-Type: application/json' `
-  -d '{"model":"Qwen/Qwen3.6-35B-A3B-FP8","messages":[{"role":"user","content":"Hello"}]}'
+az vm get-instance-view -g sglang-rg -n sglang-h100 \
+  --query "instanceView.statuses[?starts_with(code, 'PowerState/')].code" \
+  -o tsv</code></pre></div>
+        <div class="expected callout"><h4>Expected result</h4><p>The start script is safe to rerun and the instance-view query returns <code>PowerState/running</code>.</p></div>
+        <div class="checkpoint callout"><h4>Checkpoint</h4><p>The VM reports <code>PowerState/running</code>. This confirms compute state only; Step 7 confirms model readiness.</p></div>
+      </section>
 
-# Run full test suite
-.\deploy\test-tool-calling.ps1</code></pre>
+      <section class="lab-step" id="step-6">
+        <div class="step-heading"><span class="step-number">6</span><div><h3>Apply the required network rules</h3><p>Replace the broad bootstrap rule with explicit service ports.</p></div></div>
+        <div class="purpose callout"><h4>Purpose</h4><p>Expose Caddy HTTPS and certificate validation without exposing SGLang's port 30000.</p></div>
+        <div class="run"><h4>Run</h4><pre><code>bash 03b-open-nsg-ports.sh
 
-    <div class="note">
-        <strong>⚠️ TLS 1.2 Required:</strong> PowerShell 5.1 defaults to TLS 1.0. Always add <code>[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12</code> before making HTTPS requests.
-    </div>
-</section>
+az network nsg rule list -g sglang-rg --nsg-name sglang-nsg \
+  --query "[?direction=='Inbound'].{name:name, port:destinationPortRange, access:access, priority:priority}" \
+  -o table</code></pre></div>
+        <div class="expected callout"><h4>Expected result</h4><p>Narrow inbound rules exist for HTTPS 443 and ACME 80. SSH 22 is optional for administration, but corporate GSA may block it. The legacy <code>03-open-nsg.sh</code> is broad and testing-only; <code>04-check-nsg.sh</code> checks that old allow-all design, not these narrow rules.</p></div>
+        <div class="checkpoint callout"><h4>Checkpoint</h4><p>The required ports 443 and 80 are allowed, port 30000 is not public, and DNS resolves to the VM's static IP. Use <code>03b-open-nsg-ports.sh</code> again if automated hardening removes the rules.</p></div>
+      </section>
 
-<!-- ==================== 6. TROUBLESHOOTING ==================== -->
-<section id="troubleshooting">
-    <h2>6. Troubleshooting</h2>
+      <section class="lab-step" id="step-7">
+        <div class="step-heading"><span class="step-number">7</span><div><h3>Launch SGLang and Caddy</h3><p>Download the model, start inference, and wait for loopback health.</p></div></div>
+        <div class="purpose callout"><h4>Purpose</h4><p>Run the model on the H100 and expose only the authenticated HTTPS gateway.</p></div>
+        <div class="run"><h4>Run</h4><pre><code>bash 05-run-sglang.sh
 
-    <h3>Endpoint unreachable from WSL</h3>
-    <p>Azure Global Secure Access (GSA) blocks WSL outbound traffic to public domains. Use Windows PowerShell or SSH into the VM to test.</p>
+# Default readiness budget used by the script:
+READINESS_ATTEMPTS=60
+READINESS_INTERVAL=30
 
-    <h3>TLS handshake failure ("Could not create SSL/TLS secure channel")</h3>
-    <p>Caddy's Let's Encrypt ACME challenge may have failed while NSG was down. Restart Caddy to retry:</p>
-    <pre><code>az vm run-command invoke -g sglang-rg -n sglang-h100 \
-  --command-id RunShellScript \
-  --scripts "docker restart caddy"</code></pre>
-
-    <h3>NSG rules missing (Azure Defender adaptive hardening)</h3>
-    <p>Azure Defender can strip NSG inbound rules. Restore them:</p>
-    <pre><code>./deploy/03b-open-nsg-ports.sh</code></pre>
-
-    <h3>Check VM health directly</h3>
-    <pre><code>az vm run-command invoke -g sglang-rg -n sglang-h100 \
-  --command-id RunShellScript \
-  --scripts "docker ps && curl -s http://127.0.0.1:30000/health"</code></pre>
-</section>
-
-<!-- ==================== 7. QUICK REFERENCE ==================== -->
-<section id="quick-reference">
-    <h2>7. Quick Reference</h2>
-
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr><th>Property</th><th>Value</th></tr>
-            </thead>
-            <tbody>
-                <tr><td>Endpoint</td><td>https://openai.contoso.day/v1</td></tr>
-                <tr><td>Model</td><td>Qwen/Qwen3.6-35B-A3B-FP8</td></tr>
-                <tr><td>GPU</td><td>NVIDIA H100 NVL (94 GB VRAM)</td></tr>
-                <tr><td>VM SKU</td><td>Standard_NC40ads_H100_v5</td></tr>
-                <tr><td>Region</td><td>Indonesia Central (indonesiacentral)</td></tr>
-                <tr><td>Resource Group</td><td>sglang-rg</td></tr>
-                <tr><td>VM Name</td><td>sglang-h100</td></tr>
-                <tr><td>SSH User</td><td>azureuser</td></tr>
-                <tr><td>API Key Location</td><td>deploy/.secrets/api_key</td></tr>
-                <tr><td>TLS Issuer</td><td>Let's Encrypt (YE1)</td></tr>
-                <tr><td>Max Model Length</td><td>262,144 tokens</td></tr>
-            </tbody>
-        </table>
-    </div>
-
-    <h3>Python SDK Example</h3>
-    <pre><code>from openai import OpenAI
-
-client = OpenAI(
-    base_url="https://openai.contoso.day/v1",
-    api_key="YOUR_API_KEY"
-)
-
-response = client.chat.completions.create(
-    model="Qwen/Qwen3.6-35B-A3B-FP8",
-    messages=[{"role": "user", "content": "Hello, world!"}],
-)
-
-print(response.choices[0].message.content)</code></pre>
-
-    <h3>Tool Calling Example</h3>
-    <pre><code># Test tool-calling from PowerShell
-.\deploy\test-tool-calling.ps1
-
-# Or query weather via tool-calling
-.\deploy\query-weather.ps1 "Jakarta" "Surabaya"</code></pre>
-</section>
-
-<!-- ==================== 8. CUSTOM DOMAIN ==================== -->
-<section id="custom-domain">
-    <h2>8. Custom Domain Configuration</h2>
-    <p>If you want to use your own domain instead of <code>openai.contoso.day</code>, follow these steps to configure DNS and update the deployment.</p>
-
-    <h3>Step 1: Configure DNS Record</h3>
-    <p>Add an <strong>A record</strong> in your DNS provider's control panel pointing to your Azure VM's public IP:</p>
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr><th>Record Type</th><th>Name</th><th>Value</th><th>TTL</th></tr>
-            </thead>
-            <tbody>
-                <tr><td>A</td><td><code>openai</code> (or <code>@</code> for apex)</td><td>[Your Azure Public IP]</td><td>Auto</td></tr>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="note">
-        <strong>💡 Cloudflare Users:</strong> Set proxy status to <strong>DNS-only</strong> (grey cloud) to avoid routing issues. Do not enable CDN or WAF — Caddy handles TLS directly.
-    </div>
-
-    <h3>Step 2: Update Deployment Configuration</h3>
-    <p>Edit <code>deploy/config.sh</code> to set your custom domain:</p>
-    <pre><code># Edit deploy/config.sh
-DOMAIN="yourdomain.com"          # Your custom domain
-SUBDOMAIN="openai"               # Subdomain (optional)
-FULL_DOMAIN="${SUBDOMAIN}.${DOMAIN}"  # e.g., openai.yourdomain.com</code></pre>
-
-    <h3>Step 3: Update Caddy Configuration</h3>
-    <p>Caddy automatically requests Let's Encrypt certificates for your domain. Ensure the <code>Caddyfile.tmpl</code> references the correct domain:</p>
-    <pre><code># In deploy/Caddyfile.tmpl
-{
-    ${FULL_DOMAIN} {
-        reverse_proxy 127.0.0.1:30000
-        
-        header {
-            Strict-Transport-Security "max-age=31536000; includeSubDomains"
-            X-Content-Type-Options "nosniff"
-        }
-        
-        # API Key authentication
-        @auth header Authorization /^Bearer \\s+YOUR_API_KEY\\s*$/
-        respond @auth "Unauthorized" 401
-    }
-}</code></pre>
-
-    <h3>Step 4: Redeploy</h3>
-    <p>After updating the configuration, restart Caddy to apply the new domain and request a fresh TLS certificate:</p>
-    <pre><code># SSH into the VM and restart Caddy
+# If readiness needs investigation:
 az vm run-command invoke -g sglang-rg -n sglang-h100 \
   --command-id RunShellScript \
-  --scripts "docker restart caddy"
+  --scripts "docker ps; docker logs --tail 80 sglang; nvidia-smi" \
+  --query "value[0].message" -o tsv</code></pre></div>
+        <div class="expected callout"><h4>Expected result</h4><p>The script launches SGLang with <code>--context-length 262144</code>, reasoning parser <code>qwen3</code>, tool parser <code>qwen3_coder</code>, and Caddy on HTTPS. Readiness is checked on the VM at <code>http://127.0.0.1:30000/health</code>, avoiding GSA and hairpin-NAT false failures.</p></div>
+        <div class="checkpoint callout"><h4>Checkpoint</h4><p>The output includes <code>SGLANG_READY</code>. If not, inspect model logs and GPU state through Azure Run Command before continuing.</p></div>
+      </section>
 
-# Verify TLS certificate
-curl -I https://yourdomain.com/v1/health</code></pre>
+      <section class="lab-step" id="step-8">
+        <div class="step-heading"><span class="step-number">8</span><div><h3>Validate the endpoint end to end</h3><p>Test from Windows PowerShell when the corporate network blocks WSL.</p></div></div>
+        <div class="purpose callout"><h4>Purpose</h4><p>Prove that public HTTPS, authentication, OpenAI compatibility, generation, and tool calling work together.</p></div>
+        <div class="run"><h4>Run — Windows PowerShell from the cloned repository root</h4><pre><code>cd deploy
+.\test-tool-calling.ps1</code></pre></div>
+        <div class="expected callout"><h4>Expected result</h4><p>The suite reports PASS for health, models, and basic chat, then prints a <code>get_weather</code> tool call and <code>TOOL_CALLING_WORKS</code>. Caddy accepts both <code>Authorization: Bearer &lt;key&gt;</code> and the Foundry-compatible <code>api-key</code> header.</p></div>
+        <div class="checkpoint callout"><h4>Checkpoint</h4><p>All four test stages pass. A WSL public-endpoint failure alone is not evidence of an Azure failure when Global Secure Access is active.</p></div>
+      </section>
 
-    <h3>Verification</h3>
-    <p>Confirm your custom domain is working correctly:</p>
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr><th>Check</th><th>Command</th><th>Expected Result</th></tr>
-            </thead>
-            <tbody>
-                <tr><td>DNS Resolution</td><td><code>nslookup yourdomain.com</code></td><td>Resolves to Azure Public IP</td></tr>
-                <tr><td>TLS Certificate</td><td><code>openssl s_client -connect yourdomain.com:443 -servername yourdomain.com</code></td><td>Certificate issued for yourdomain.com</td></tr>
-                <tr><td>Health Endpoint</td><td><code>curl https://yourdomain.com/health</code></td><td>HTTP 200 OK</td></tr>
-                <tr><td>API Endpoint</td><td><code>curl -H "Authorization: Bearer YOUR_KEY" https://yourdomain.com/v1/models</code></td><td>Model list JSON response</td></tr>
-            </tbody>
-        </table>
-    </div>
+      <section class="lab-step" id="step-9">
+        <div class="step-heading"><span class="step-number">9</span><div><h3>Control cost or tear down</h3><p>Choose whether to retain the environment after the lab.</p></div></div>
+        <div class="purpose callout danger"><h4>Purpose</h4><p>Stop H100 compute billing when idle or remove all workshop resources. Full teardown is destructive and cannot be undone.</p></div>
+        <div class="run"><h4>Run</h4><pre><code># Keep network and disks; stop compute billing
+bash 99-destroy.sh --vm-only
 
-    <div class="note">
-        <strong>⚠️ Important:</strong> Let's Encrypt certificates are valid for 90 days. Caddy automatically renews them, but ensure port 80 remains open for ACME challenges. If using a reverse proxy or CDN, configure it to pass ACME challenges through to Caddy.
-    </div>
-</section>
+# OR delete the whole resource group
+bash 99-destroy.sh
+# Prompt: Type the resource group name to confirm</code></pre></div>
+        <div class="expected callout"><h4>Expected result</h4><p><code>--vm-only</code> deallocates the VM and preserves resources. Full teardown asks for the exact resource group name, then starts asynchronous deletion.</p></div>
+        <div class="checkpoint callout"><h4>Checkpoint</h4><p>Confirm either that the VM is deallocated or that resource-group deletion started. Record your choice in the completion checklist.</p></div>
+      </section>
 
-<!-- ==================== 9. GITHUB CLONE ==================== -->
-<section id="github-clone">
-    <h2>9. GitHub Clone</h2>
-    <p>Get the complete deployment scripts, configuration files, and testing tools from the GitHub repository:</p>
-    
-    <div class="card">
-        <h4>Clone the Repository</h4>
-        <pre><code>git clone https://github.com/ibranibeny/sglang-azure-workshop.git
-cd sglang-azure-workshop</code></pre>
-        <p>After cloning, navigate to the <code>deploy/</code> directory and follow the deployment scripts in order:</p>
-        <pre><code>cd deploy
-# Then follow: 00-genkey.sh → 01-deploy.sh → 02-start-vm.sh → 03-open-nsg.sh → 05-run-sglang.sh</code></pre>
-    </div>
-
-    <div class="card">
-        <h4>Repository Structure</h4>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr><th>Path</th><th>Description</th></tr>
-                </thead>
-                <tbody>
-                    <tr><td><code>deploy/</code></td><td>Deployment scripts (00-genkey.sh through 99-destroy.sh)</td></tr>
-                    <tr><td><code>deploy/Caddyfile.tmpl</code></td><td>Caddy reverse proxy configuration template</td></tr>
-                    <tr><td><code>deploy/cloud-init.yaml</code></td><td>VM cloud-init configuration for Docker installation</td></tr>
-                    <tr><td><code>deploy/config.sh</code></td><td>Shared configuration variables (region, VM size, domain)</td></tr>
-                    <tr><td><code>deploy/test-tool-calling.ps1</code></td><td>PowerShell test suite for endpoint validation</td></tr>
-                    <tr><td><code>README.md</code></td><td>Project overview and quick start guide</td></tr>
-                </tbody>
-            </table>
+      <section id="validation" class="chapter">
+        <p class="eyebrow">Collect evidence</p>
+        <h2>6. Validation evidence</h2>
+        <p>The repository's PowerShell suite validates the endpoint in four layers:</p>
+        <div class="test-grid">
+          <div class="mini-card"><h3>1. Health</h3><p><code>GET /health</code> returns HTTP 200 without authentication.</p></div>
+          <div class="mini-card"><h3>2. Models</h3><p><code>GET /v1/models</code> returns the served model with the secret header.</p></div>
+          <div class="mini-card"><h3>3. Chat</h3><p><code>POST /v1/chat/completions</code> returns a valid completion.</p></div>
+          <div class="mini-card"><h3>4. Tool calling</h3><p>The model returns structured <code>tool_calls</code> and <code>TOOL_CALLING_WORKS</code>.</p></div>
         </div>
-    </div>
-</section>
+        <pre><code>PASS health HTTP 200
+PASS model id: Qwen/Qwen3.6-35B-A3B-FP8
+PASS chat content: ...
+tool: get_weather  args: {"city":"Jakarta"}
+PASS TOOL_CALLING_WORKS</code></pre>
+      </section>
 
-<!-- ==================== 10. CHECKLIST COMPLETION ==================== -->
-<section id="checklist">
-    <h2>10. Checklist Completion</h2>
-    <div class="card">
-        <ul class="checklist">
-            <li>Azure CLI installed and authenticated (<code>az login</code>)</li>
-            <li>Azure subscription with H100 quota in Indonesia Central confirmed</li>
-            <li>Domain configured on Cloudflare (DNS-only mode)</li>
-            <li>API key generated (<code>./00-genkey.sh</code>)</li>
-            <li>VM provisioned with GPU driver (<code>./01-deploy.sh</code>)</li>
-            <li>VM is running (<code>./02-start-vm.sh</code>)</li>
-            <li>NSG rules open for ports 22, 80, 443 (<code>./03-open-nsg.sh</code>)</li>
-            <li>SGLang + Caddy launched and healthy (<code>./05-run-sglang.sh</code>)</li>
-            <li>Health endpoint returns HTTP 200</li>
-            <li>Model list returns Qwen3.6-35B-A3B-FP8</li>
-            <li>Chat completion returns valid response</li>
-            <li>Tool-calling test passes (<code>./test-tool-calling.ps1</code>)</li>
+      <section id="troubleshooting" class="chapter">
+        <p class="eyebrow">Recover systematically</p>
+        <h2>7. Troubleshooting</h2>
+        <div class="troubleshooting-grid">
+          <div class="mini-card"><h3>WSL cannot reach the domain</h3><p><strong>Cause:</strong> corporate Global Secure Access blocks WSL outbound traffic. <strong>Recovery:</strong> test the public endpoint from Windows PowerShell; use Azure Run Command for VM-local checks.</p></div>
+          <div class="mini-card"><h3>HTTPS connection closes</h3><p><strong>Cause:</strong> the narrow NSG rules may have been removed. <strong>Recovery:</strong> run <code>03b-open-nsg-ports.sh</code>, verify 80/443, and test again.</p></div>
+          <div class="mini-card"><h3>TLS handshake fails after NSG recovery</h3><p><strong>Cause:</strong> Caddy entered ACME backoff while ports were closed. <strong>Recovery:</strong> restore rules, then restart Caddy through <code>az vm run-command</code> so certificate issuance retries immediately.</p></div>
+          <div class="mini-card"><h3>Model is not ready</h3><p><strong>Cause:</strong> first-run weight download or GPU initialization. <strong>Recovery:</strong> inspect <code>docker logs --tail 80 sglang</code> and <code>nvidia-smi</code> through Azure Run Command.</p></div>
+          <div class="mini-card"><h3>API returns 401</h3><p><strong>Cause:</strong> missing or stale key. <strong>Recovery:</strong> load <code>.secrets/api_key</code>; after rotation, rerun <code>05-run-sglang.sh</code> to restart Caddy without reloading the model.</p></div>
+          <div class="mini-card"><h3>Tool call is plain text</h3><p><strong>Cause:</strong> parser mismatch or stale container. <strong>Recovery:</strong> verify <code>--tool-call-parser qwen3_coder</code>, then force a model-container restart if configuration changed.</p></div>
+        </div>
+      </section>
+
+      <section id="completion" class="chapter">
+        <p class="eyebrow">Workshop gate</p>
+        <h2>8. Completion checklist</h2>
+        <ul class="completion-list">
+          <li>The Azure VM uses <code>Standard_NC40ads_H100_v5</code> in <code>indonesiacentral</code>.</li>
+          <li>The NVIDIA driver reports a healthy H100 NVL GPU.</li>
+          <li>SGLang health returns HTTP 200 on VM loopback port 30000.</li>
+          <li>Caddy serves the custom domain over HTTPS.</li>
+          <li>Port 30000 is not exposed publicly; only required service ports are open.</li>
+          <li>Unauthenticated OpenAI API requests return 401.</li>
+          <li>Authenticated model discovery and chat completion pass.</li>
+          <li>The tool-calling test returns <code>TOOL_CALLING_WORKS</code>.</li>
+          <li>The API key remains in the git-ignored secrets directory.</li>
+          <li>The VM is deliberately retained, deallocated, or deleted after the lab.</li>
         </ul>
-    </div>
-</section>
+      </section>
 
-<!-- ==================== 11. REFERENCES ==================== -->
-<section id="references">
-    <h2>11. References</h2>
-    <ul>
-        <li><strong>SGLang</strong> — Official repository: <a href="https://github.com/sgl-project/sglang" target="_blank">github.com/sgl-project/sglang</a></li>
-        <li><strong>SGLang Documentation</strong> — Quick start guide: <a href="https://sgl-project.github.io/" target="_blank">sgl-project.github.io</a></li>
-        <li><strong>Caddy</strong> — Official site: <a href="https://caddyserver.com/" target="_blank">caddyserver.com</a></li>
-        <li><strong>Qwen3.6-35B-A3B-FP8</strong> — HuggingFace model: <a href="https://huggingface.co/Qwen/Qwen3.6-35B-A3B-FP8" target="_blank">huggingface.co/Qwen/Qwen3.6-35B-A3B-FP8</a></li>
-        <li><strong>Azure NCads H100 v5</strong> — VM documentation: <a href="https://learn.microsoft.com/azure/virtual-machines/ncads-h100-v5-series" target="_blank">Azure VM documentation</a></li>
-        <li><strong>OpenAI API</strong> — Compatible endpoint reference: <a href="https://platform.openai.com/docs/api-reference" target="_blank">platform.openai.com/docs</a></li>
-    </ul>
-    <p style="margin-top: 1rem;">All sources above come from official documentation and repositories.</p>
-</section>
+      <section id="references" class="chapter">
+        <p class="eyebrow">Authoritative sources</p>
+        <h2>9. References</h2>
+        <ul class="reference-list">
+          <li><a href="https://github.com/sgl-project/sglang">SGLang repository</a></li>
+          <li><a href="https://docs.sglang.ai/">SGLang documentation</a></li>
+          <li><a href="https://huggingface.co/Qwen/Qwen3.6-35B-A3B-FP8">Qwen3.6-35B-A3B-FP8 model</a></li>
+          <li><a href="https://caddyserver.com/docs/">Caddy documentation</a></li>
+          <li><a href="https://learn.microsoft.com/azure/virtual-machines/ncads-h100-v5-series">Azure NCads H100 v5 VM series</a></li>
+          <li><a href="https://learn.microsoft.com/azure/virtual-machines/extensions/hpccompute-gpu-linux">NVIDIA GPU Driver Extension for Linux</a></li>
+          <li><a href="https://learn.microsoft.com/cli/azure/vm">Azure CLI VM reference</a></li>
+          <li><a href="https://learn.microsoft.com/cli/azure/network/nsg/rule">Azure CLI NSG rule reference</a></li>
+          <li><a href="https://platform.openai.com/docs/api-reference">OpenAI API reference</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
 
-<!-- ==================== ADDITIONAL LINKS ==================== -->
-<div class="additional-links">
-    <h3>Additional Links</h3>
-    <ul>
-        <li><a href="#overview">1. Overview & Objectives</a></li>
-        <li><a href="#prerequisites">2. Prerequisites</a></li>
-        <li><a href="#architecture">3. Architecture</a></li>
-        <li><a href="#deployment">4. Deployment Guidance</a></li>
-        <li><a href="#testing">5. Testing the Endpoint</a></li>
-        <li><a href="#troubleshooting">6. Troubleshooting</a></li>
-        <li><a href="#quick-reference">7. Quick Reference</a></li>
-        <li><a href="#custom-domain">8. Custom Domain Configuration</a></li>
-        <li><a href="#github-clone">9. GitHub Clone</a></li>
-        <li><a href="#checklist">10. Checklist Completion</a></li>
-        <li><a href="#references">11. References</a></li>
-    </ul>
-</div>
+  <footer class="site-footer">
+    <p>SGLang on Azure H100 · Sequential L200 workshop · <a href="https://github.com/ibranibeny/sglang-azure-workshop">Source repository</a></p>
+  </footer>
 
-</div>
+  <script>
+    (() => {
+      const style = getComputedStyle(document.documentElement);
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: 'base',
+        securityLevel: 'strict',
+        themeVariables: {
+          primaryColor: style.getPropertyValue('--cp-accent-soft').trim(),
+          primaryTextColor: style.getPropertyValue('--cp-text').trim(),
+          primaryBorderColor: style.getPropertyValue('--cp-accent').trim(),
+          lineColor: style.getPropertyValue('--cp-text-soft').trim(),
+          secondaryColor: style.getPropertyValue('--cp-surface-soft').trim(),
+          tertiaryColor: style.getPropertyValue('--cp-surface').trim(),
+          background: style.getPropertyValue('--cp-bg-elevated').trim(),
+          fontFamily: 'Segoe UI, Aptos, Calibri, sans-serif'
+        },
+        flowchart: { curve: 'basis', useMaxWidth: true }
+      });
 
-<!-- ==================== FOOTER ==================== -->
-<footer class="footer">
-    <p>Workshop documentation for <a href="https://github.com/ibranibeny/sglang-azure-workshop" target="_blank">ibranibeny/sglang-azure-workshop</a></p>
-    <p style="margin-top: 0.5rem;">Qwen3.6-35B-A3B-FP8 · Azure H100 · SGLang · Caddy · Indonesia Central</p>
-</footer>
+      const toggle = document.querySelector('#content-list-toggle');
+      const list = document.querySelector('#content-list');
+      const links = [...document.querySelectorAll('.content-list a[href^="#"]')];
+      const sections = links
+        .map(link => document.querySelector(link.getAttribute('href')))
+        .filter(Boolean);
 
+      toggle?.addEventListener('click', () => {
+        const open = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', String(!open));
+        list?.classList.toggle('is-open', !open);
+      });
+
+      links.forEach(link => link.addEventListener('click', () => {
+        toggle?.setAttribute('aria-expanded', 'false');
+        list?.classList.remove('is-open');
+      }));
+
+      const observer = new IntersectionObserver(entries => {
+        const visible = entries
+          .filter(entry => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (!visible) return;
+        links.forEach(link => {
+          const active = link.getAttribute('href') === `#${visible.target.id}`;
+          link.classList.toggle('active', active);
+          if (active) link.setAttribute('aria-current', 'location');
+          else link.removeAttribute('aria-current');
+        });
+      }, { rootMargin: '-15% 0px -70% 0px' });
+
+      sections.forEach(section => observer.observe(section));
+    })();
+  </script>
 </body>
 </html>
