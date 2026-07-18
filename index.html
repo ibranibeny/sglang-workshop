@@ -350,7 +350,7 @@
         <div class="card-sm">
             <span class="tag">NETWORK</span>
             <h4>Public IP + NSG</h4>
-            <p>Static Public IP <code>70.153.148.66</code> with NSG rules allowing inbound SSH (22), HTTP/ACME (80), and HTTPS (443). Outbound traffic is unrestricted.</p>
+            <p>Static Public IP with NSG rules allowing inbound SSH (22), HTTP/ACME (80), and HTTPS (443). Outbound traffic is unrestricted.</p>
         </div>
         <div class="card-sm">
             <span class="tag">DNS</span>
@@ -410,12 +410,12 @@ flowchart TB
     end
 
     subgraph Cloudflare["☁️ Cloudflare (DNS-Only)"]
-        DNS["DNS Record<br/>openai.contoso.day → 70.153.148.66"]
+        DNS["DNS Record<br/>openai.contoso.day → Public IP"]
     end
 
     subgraph Azure["☁️ Azure — Indonesia Central"]
         subgraph RG["📦 Resource Group: sglang-rg"]
-            PIP["📌 Public IP<br/>70.153.148.66 (Static)"]
+            PIP["📌 Public IP"]
 
             subgraph NSG["🛡️ NSG: sglang-nsg"]
                 direction TB
@@ -464,7 +464,7 @@ sequenceDiagram
     participant GPU as 🎮 H100 GPU
 
     C->>CF: DNS lookup openai.contoso.day
-    CF-->>C: 70.153.148.66
+    CF-->>C: Public IP
 
     C->>CA: POST /v1/chat/completions<br/>Authorization: Bearer &lt;API_KEY&gt;
 
